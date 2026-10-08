@@ -1,20 +1,38 @@
-<p align="center"><img src="assets/brand/vela-mark.png" alt="Vela" width="120" /></p>
+<p align="center"><img src="assets/brand/nudge-mark.png" alt="Nudge" width="120" /></p>
 
-# Vela — Server
+# Nudge — Server
 
-Backend for **Vela**, an open-source contactless-payment prototype built around [Stellar](https://stellar.org) testnet.
+![CI](https://github.com/Nudge-Pay/nudge-server/actions/workflows/ci-server.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+![Stellar](https://img.shields.io/badge/Stellar-Soroban-7D00FF?logo=stellar&logoColor=white)
+
+Backend for **Nudge**, an open-source contactless-payment prototype built around [Stellar](https://stellar.org) testnet.
 
 The backend contains payment-request validation and persistence, passkey-based payment authorization, and a Stellar integration service for transaction building, submission and confirmation polling. Connecting these services into a complete client-to-network payment flow remains active development work.
 
-> **Mobile client:** The Expo app lives in a separate repository — [VelaPayments/vela-payments](https://github.com/VelaPayments/vela-payments).
+> **Mobile client:** The Expo app lives in a separate repository — [Nudge-Pay/nudge-payments](https://github.com/Nudge-Pay/nudge-payments).
 
-## How Vela uses Stellar
+## Table of Contents
 
-Stellar is the intended settlement network for Vela payments. The product goal is a short path from sharing a payment request to approving and confirming an XLM or issued-asset transfer. NFC carries the request between devices; funds move through a signed Stellar transaction and network confirmation.
+- [How Nudge uses Stellar](#how-nudge-uses-stellar)
+- [Project status](#project-status)
+- [Tech stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Project setup](#project-setup)
+- [Scripts](#scripts)
+- [Project structure](#project-structure)
+- [Documentation](#documentation)
+- [Supported assets (MVP)](#supported-assets-mvp)
+- [Environment variables](#environment-variables)
+- [Security notes](#security-notes)
+
+## How Nudge uses Stellar
+
+Stellar is the intended settlement network for Nudge payments. The product goal is a short path from sharing a payment request to approving and confirming an XLM or issued-asset transfer. NFC carries the request between devices; funds move through a signed Stellar transaction and network confirmation.
 
 This repository implements the server-side building blocks with `@stellar/stellar-sdk`:
 
-| Capability                  | Implementation                                                                                                                            | Role in Vela                                                                                                         |
+| Capability                  | Implementation                                                                                                                            | Role in Nudge                                                                                                         |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Network access              | [StellarModule](src/stellar/stellar.module.ts)                                                                                            | Configures Horizon and Stellar RPC clients, the network passphrase and the USDC issuer                               |
 | Accounts and assets         | [StellarService](src/stellar/stellar.service.ts) — `getAccount`, `resolveAsset`                                                           | Loads source accounts; resolves native XLM or USDC by its configured issuer                                          |
@@ -27,19 +45,19 @@ The transaction helpers have mocked regression coverage in [stellar.service.spec
 
 ### Work that advances the Stellar integration
 
-- [Align the client/server payment payload](https://github.com/VelaPayments/vela-server/issues/3) so NFC requests can pass server validation consistently.
-- [Strengthen memo byte limits and confirmation polling coverage](https://github.com/VelaPayments/vela-server/issues/52).
-- [Protect authorization failure ordering](https://github.com/VelaPayments/vela-server/issues/64) before connecting authorization to submission.
+- [Align the client/server payment payload](https://github.com/Nudge-Pay/nudge-server/issues/3) so NFC requests can pass server validation consistently.
+- [Strengthen memo byte limits and confirmation polling coverage](https://github.com/Nudge-Pay/nudge-server/issues/52).
+- [Protect authorization failure ordering](https://github.com/Nudge-Pay/nudge-server/issues/64) before connecting authorization to submission.
 
 The current prototype targets Stellar testnet. XLM is represented as the native asset; issued assets are identified by both code and issuer, so the USDC issuer must match the selected network. See [Stellar's asset model](https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/assets).
 
 ## Project status
 
-Vela is an early Stellar testnet prototype under active development. It is not ready for real funds or production payment use.
+Nudge is an early Stellar testnet prototype under active development. It is not ready for real funds or production payment use.
 
 | Area             | Current status                                                                                                          |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Web preview      | [Live UI preview](https://vela-payments.vercel.app/); browser passkey setup and NFC are unavailable                     |
+| Web preview      | [Live UI preview](https://nudge-payments.vercel.app/); browser passkey setup and NFC are unavailable                     |
 | Mobile           | Native onboarding, wallet and receive-flow code; requires a development build and physical-device validation            |
 | Sending payments | Client Send screen is a scaffold; end-to-end payment completion is not demonstrated                                     |
 | Authentication   | Client auth uses local challenges and placeholder API responses; server verification integration remains unfinished     |
@@ -110,7 +128,7 @@ The API is versioned under `/v1`. Swagger UI is available at `/docs` when the se
 Project structure:
 
 ```
-vela-server/
+nudge-server/
 ├── prisma/                 # Schema, migrations, seed
 ├── docs/                   # Architecture, build plan, contracts
 ├── src/
@@ -134,7 +152,7 @@ vela-server/
 
 | Document                                                                           | Description                        |
 | ---------------------------------------------------------------------------------- | ---------------------------------- |
-| [docs/vela-overview.md](./docs/vela-overview.md)                                   | Product vision and UX flows        |
+| [docs/nudge-overview.md](./docs/nudge-overview.md)                                   | Product vision and UX flows        |
 | [docs/server-build-plan.md](./docs/server-build-plan.md)                           | Full server build plan (SRV tasks) |
 | [docs/server-build-plan-consolidated.md](./docs/server-build-plan-consolidated.md) | Consolidated task reference        |
 
