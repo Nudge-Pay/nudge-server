@@ -261,5 +261,23 @@ describe('PaymentRequests persist + retrieve (e2e)', () => {
         .set('Authorization', bearer());
       expect(res.status).toBe(404);
     });
+
+    it('returns 404 with PAYMENT_REQUEST_NOT_FOUND when requested by a different user', async () => {
+      const foreignBearer = `Bearer ${jwt.sign(
+        { sub: 'foreign-supabase-user-id', email: 'eve@example.com' },
+        JWT_SECRET,
+        { expiresIn: '1h' },
+      )}`;
+
+      const res = await request(app.getHttpServer())
+        .get(`${PERSIST_ROUTE}/${createdPrId}`)
+        .set('Authorization', foreignBearer);
+
+      expect(res.status).toBe(404);
+      expect(res.body).toMatchObject({
+        statusCode: 404,
+        code: 'PAYMENT_REQUEST_NOT_FOUND',
+      });
+    });
   });
 });

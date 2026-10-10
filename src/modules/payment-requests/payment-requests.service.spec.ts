@@ -216,21 +216,43 @@ describe('PaymentRequestsService', () => {
   // ── findById ──────────────────────────────────────────────────────────────
 
   describe('findById()', () => {
-    it('returns the response DTO for an existing record', async () => {
+    it('returns the response DTO when requested by the owner', async () => {
       const pr = makePaymentRequest({ status: 'SHARED' });
       repo.findById.mockResolvedValue(pr);
 
-      const result = await service.findById('pr-uuid-1');
+      const result = await service.findById('pr-uuid-1', mockUser);
 
-      expect(repo.findById).toHaveBeenCalledWith('pr-uuid-1');
+      expect(repo.findById).toHaveBeenCalledWith(
+        'pr-uuid-1',
+        mockUser.supabaseUserId,
+      );
       expect(result.status).toBe('SHARED');
     });
 
+    it('throws NotFoundException when the record belongs to a different user', async () => {
+      const pr = makePaymentRequest({
+        status: 'SHARED',
+        receiverUserId: 'different-user-id',
+      });
+      repo.findById.mockResolvedValue(pr);
+
+      const otherUser: AuthenticatedUser = {
+        supabaseUserId: 'caller-supabase-id',
+      };
+      await expect(
+        service.findById('pr-uuid-1', otherUser),
+      ).rejects.toMatchObject({
+        response: { code: 'PAYMENT_REQUEST_NOT_FOUND' },
+      });
+    });
+
     it('propagates NotFoundException from repo', async () => {
-      repo.findById.mockRejectedValue(new NotFoundException());
-      await expect(service.findById('missing-id')).rejects.toBeInstanceOf(
-        NotFoundException,
+      repo.findById.mockRejectedValue(
+        new NotFoundException({ code: 'PAYMENT_REQUEST_NOT_FOUND' }),
       );
+      await expect(
+        service.findById('missing-id', mockUser),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

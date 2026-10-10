@@ -1,4 +1,8 @@
-import { Injectable, UnprocessableEntityException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import {
   PaymentRequestV1,
   PaymentRequestValidationError,
@@ -91,9 +95,19 @@ export class PaymentRequestsService {
     return toResponseDto(paymentRequest);
   }
 
-  /** SRV-040: Retrieve by internal UUID. */
-  async findById(id: string): Promise<PaymentRequestResponseDto> {
-    const pr = await this.repo.findById(id);
+  /** SRV-040: Retrieve by internal UUID for the authenticated owner. */
+  async findById(
+    id: string,
+    user: AuthenticatedUser,
+  ): Promise<PaymentRequestResponseDto> {
+    const pr = await this.repo.findById(id, user.supabaseUserId);
+    if (pr.receiverUserId !== user.supabaseUserId) {
+      throw new NotFoundException({
+        statusCode: 404,
+        message: `Payment request ${id} not found.`,
+        code: 'PAYMENT_REQUEST_NOT_FOUND',
+      });
+    }
     return toResponseDto(pr);
   }
 }
