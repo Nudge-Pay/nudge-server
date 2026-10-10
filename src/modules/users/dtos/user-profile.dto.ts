@@ -5,21 +5,21 @@ export class WalletDto {
     description: 'Wallet ID',
     example: 'wallet-uuid',
   })
-  id: string;
+  id!: string;
 
   @ApiProperty({
     description: 'Stellar public key',
     example: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
   })
-  stellarPublicKey: string;
+  stellarPublicKey!: string;
 
   @ApiProperty({
     enum: ['TESTNET', 'MAINNET'],
   })
-  network: string;
+  network!: string;
 
   @ApiProperty({ example: true })
-  isPrimary: boolean;
+  isPrimary!: boolean;
 
   @ApiProperty({ example: 'iPhone 14', nullable: true })
   label?: string | null;
@@ -30,19 +30,19 @@ export class UserProfileDto {
     description: 'Internal user ID',
     example: 'user-uuid',
   })
-  id: string;
+  id!: string;
 
   @ApiProperty({
     description: 'Supabase Auth user ID',
     example: 'supa-user-uuid',
   })
-  supabaseUserId: string;
+  supabaseUserId!: string;
 
   @ApiProperty({
     description: 'Email address',
     example: 'user@example.com',
   })
-  email: string;
+  email!: string;
 
   @ApiProperty({
     description: 'Display name',
@@ -55,15 +55,15 @@ export class UserProfileDto {
     description: 'Linked wallets',
     type: [WalletDto],
   })
-  wallets: WalletDto[];
+  wallets!: WalletDto[];
 
   @ApiProperty({
     description: 'Account creation timestamp',
   })
-  createdAt: Date;
+  createdAt!: Date;
 
   @ApiProperty({
     description: 'Last update timestamp',
   })
-  updatedAt: Date;
+  updatedAt!: Date;
 }

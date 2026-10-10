@@ -30,6 +30,7 @@ export class CreatePaymentRequestDto {
   @IsString()
   @IsIn([PAYMENT_REQUEST_V1_TYPE])
   type: string;
+  type!: string;
 
   @ApiProperty({
     description: 'Must be 1.',
@@ -39,6 +40,8 @@ export class CreatePaymentRequestDto {
   @IsNumber()
   @Equals(PAYMENT_REQUEST_V1_VERSION)
   version: number;
+  @Min(1)
+  version!: number;
 
   @ApiProperty({
     description: 'Receiver Stellar public key (G…).',
@@ -48,7 +51,7 @@ export class CreatePaymentRequestDto {
   @Matches(STELLAR_ADDRESS_REGEX, {
     message: 'recipient must be a valid Stellar public key starting with G',
   })
-  recipient: string;
+  recipient!: string;
 
   @ApiProperty({
     description: 'Asset code.',
@@ -56,7 +59,7 @@ export class CreatePaymentRequestDto {
     example: 'USDC',
   })
   @IsIn(PAYMENT_REQUEST_V1_SUPPORTED_ASSETS)
-  asset: PaymentRequestV1Asset;
+  asset!: PaymentRequestV1Asset;
 
   @ApiProperty({
     description: 'Positive decimal string, ≤7 decimal places.',
@@ -67,21 +70,21 @@ export class CreatePaymentRequestDto {
     message:
       'amount must be a positive decimal string with at most 7 decimal places',
   })
-  amount: string;
+  amount!: string;
 
   @ApiProperty({
     description: 'ISO-8601 UTC timestamp of the request.',
     example: '2026-06-17T12:00:00.000Z',
   })
   @IsDateString()
-  timestamp: string;
+  timestamp!: string;
 
   @ApiProperty({
     description: 'ISO-8601 UTC expiry timestamp.',
     example: '2026-06-17T12:00:30.000Z',
   })
   @IsDateString()
-  expiresAt: string;
+  expiresAt!: string;
 
   @ApiPropertyOptional({
     description: 'Optional memo (≤280 chars).',
