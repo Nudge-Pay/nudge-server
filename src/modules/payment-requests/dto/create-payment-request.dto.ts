@@ -2,16 +2,20 @@ import {
   IsString,
   IsNumber,
   IsIn,
+  Equals,
   IsDateString,
   IsOptional,
   IsObject,
   MinLength,
   MaxLength,
   Matches,
-  Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PAYMENT_REQUEST_V1_SUPPORTED_ASSETS } from '../../../contracts/payment-request.v1';
+import {
+  PAYMENT_REQUEST_V1_SUPPORTED_ASSETS,
+  PAYMENT_REQUEST_V1_TYPE,
+  PAYMENT_REQUEST_V1_VERSION,
+} from '../../../contracts/payment-request.v1';
 import type { PaymentRequestV1Asset } from '../../../contracts/payment-request.v1';
 
 const STELLAR_ADDRESS_REGEX = /^G[A-Z2-7]{55}$/;
@@ -20,14 +24,20 @@ const AMOUNT_REGEX = /^(?!0+(?:\.0{1,7})?$)(?:0|[1-9]\d*)(?:\.\d{1,7})?$/;
 export class CreatePaymentRequestDto {
   @ApiProperty({
     description: 'Must be "payment-request".',
-    example: 'payment-request',
+    enum: [PAYMENT_REQUEST_V1_TYPE],
+    example: PAYMENT_REQUEST_V1_TYPE,
   })
   @IsString()
+  @IsIn([PAYMENT_REQUEST_V1_TYPE])
   type: string;
 
-  @ApiProperty({ description: 'Must be 1.', example: 1 })
+  @ApiProperty({
+    description: 'Must be 1.',
+    enum: [PAYMENT_REQUEST_V1_VERSION],
+    example: PAYMENT_REQUEST_V1_VERSION,
+  })
   @IsNumber()
-  @Min(1)
+  @Equals(PAYMENT_REQUEST_V1_VERSION)
   version: number;
 
   @ApiProperty({
