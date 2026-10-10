@@ -4,6 +4,23 @@ import { envValidationSchema } from '../src/config/env.validation';
 
 describe('Test environment setup (test/env.setup.ts)', () => {
   let originalEnv: NodeJS.ProcessEnv;
+  let suiteEnv: NodeJS.ProcessEnv;
+
+  beforeAll(() => {
+    suiteEnv = { ...process.env };
+    process.env.SETUP_RESTORATION_SENTINEL = 'preserve-me';
+  });
+
+  afterAll(() => {
+    try {
+      expect(process.env).toEqual({
+        ...suiteEnv,
+        SETUP_RESTORATION_SENTINEL: 'preserve-me',
+      });
+    } finally {
+      process.env = suiteEnv;
+    }
+  });
 
   beforeEach(() => {
     originalEnv = { ...process.env };
@@ -55,9 +72,5 @@ describe('Test environment setup (test/env.setup.ts)', () => {
     const missingKeys = error?.details.map((d) => d.context?.key);
     expect(missingKeys).toContain('NEW_MANDATORY_VARIABLE');
     expect(error?.message).toContain('NEW_MANDATORY_VARIABLE');
-  });
-
-  it('restores the original process.env after tests complete', () => {
-    expect(process.env).toEqual(originalEnv);
   });
 });
