@@ -83,3 +83,17 @@ jobs:
 
       - name: Run e2e tests
         run: npm run test:e2e
+
+  summary:
+    name: Summary Gate
+    runs-on: ubuntu-latest
+    needs: [server]
+    if: always()
+    steps:
+      - name: Verify dependency job statuses
+        run: |
+          if [ "${{ needs.server.result }}" != "success" ]; then
+            echo "Error: Required upstream job 'server' failed with status: ${{ needs.server.result }}"
+            exit 1
+          fi
+          echo "All upstream dependency checks passed successfully."
