@@ -32,7 +32,7 @@ Stellar is the intended settlement network for Nudge payments. The product goal 
 
 This repository implements the server-side building blocks with `@stellar/stellar-sdk`:
 
-| Capability                  | Implementation                                                                                                                            | Role in Nudge                                                                                                         |
+| Capability                  | Implementation                                                                                                                            | Role in Nudge                                                                                                        |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Network access              | [StellarModule](src/stellar/stellar.module.ts)                                                                                            | Configures Horizon and Stellar RPC clients, the network passphrase and the USDC issuer                               |
 | Accounts and assets         | [StellarService](src/stellar/stellar.service.ts) — `getAccount`, `resolveAsset`                                                           | Loads source accounts; resolves native XLM or USDC by its configured issuer                                          |
@@ -57,7 +57,7 @@ Nudge is an early Stellar testnet prototype under active development. It is not 
 
 | Area             | Current status                                                                                                          |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Web preview      | [Live UI preview](https://nudge-payments.vercel.app/); browser passkey setup and NFC are unavailable                     |
+| Web preview      | [Live UI preview](https://nudge-payments.vercel.app/); browser passkey setup and NFC are unavailable                    |
 | Mobile           | Native onboarding, wallet and receive-flow code; requires a development build and physical-device validation            |
 | Sending payments | Client Send screen is a scaffold; end-to-end payment completion is not demonstrated                                     |
 | Authentication   | Client auth uses local challenges and placeholder API responses; server verification integration remains unfinished     |
@@ -152,7 +152,7 @@ nudge-server/
 
 | Document                                                                           | Description                        |
 | ---------------------------------------------------------------------------------- | ---------------------------------- |
-| [docs/nudge-overview.md](./docs/nudge-overview.md)                                   | Product vision and UX flows        |
+| [docs/nudge-overview.md](./docs/nudge-overview.md)                                 | Product vision and UX flows        |
 | [docs/server-build-plan.md](./docs/server-build-plan.md)                           | Full server build plan (SRV tasks) |
 | [docs/server-build-plan-consolidated.md](./docs/server-build-plan-consolidated.md) | Consolidated task reference        |
 
