@@ -207,16 +207,21 @@ Both devices display:
 
 # Proposed Payment Payload Structure
 
+The canonical wire contract for NFC payment requests is defined in [docs/payment-request.v1.md](./payment-request.v1.md). Payloads conform to the versioned `payment-request.v1` schema with ISO 8601 UTC timestamps:
+
 ```json
 {
-  "type": "payment_request",
-  "recipient": "G...",
+  "type": "payment-request",
+  "version": 1,
+  "recipient": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
   "asset": "USDC",
   "amount": "25.00",
-  "timestamp": 1740000000,
-  "expiresAt": 1740000030
+  "timestamp": "2026-05-29T12:00:00.000Z",
+  "expiresAt": "2026-05-29T12:15:00.000Z"
 }
 ```
+
+For validation rules, required/optional fields, and error codes, refer to [docs/payment-request.v1.md](./payment-request.v1.md) as the single source of truth.
 
 ---
 
