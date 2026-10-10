@@ -18,6 +18,7 @@ on:
       - 'README.md'
       - 'CONTRIBUTING.md'
       - 'LICENSE'
+      - '.nvmrc'
   push:
     branches: [main, develop]
     paths:
@@ -36,6 +37,7 @@ on:
       - 'README.md'
       - 'CONTRIBUTING.md'
       - 'LICENSE'
+      - '.nvmrc'
 
 jobs:
   server:
@@ -50,6 +52,10 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+
+      - name: Assert Node.js version satisfies engines
+        run: |
+          node -e 'const pkg = require("./package.json"); const min = parseInt((pkg.engines && pkg.engines.node || "").replace(/\D+/, ""), 10) || 20; const cur = parseInt(process.versions.node.split(".")[0], 10); if (cur < min) { console.error("Node.js " + process.version + " does not satisfy engines.node: " + pkg.engines.node); process.exit(1); } console.log("Node.js " + process.version + " satisfies engines.node: " + pkg.engines.node);'
 
       - name: Install dependencies
         run: npm ci
