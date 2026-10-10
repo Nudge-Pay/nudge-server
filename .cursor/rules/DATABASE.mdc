@@ -189,18 +189,16 @@ Row Level Security is enabled via a SQL script that you run once in Supabase. It
 
 1. Open your Supabase project dashboard.
 2. Go to **SQL Editor**.
-3. Open `prisma/supabase-rls.sql` from this repo, copy its contents, and run it.
+3. After applying the Prisma migrations, open `prisma/rls.sql` from this repo, copy its contents, and run it once.
 
 The script will:
 
-- Create a `private` schema and helper functions (`current_user_has_role`, `current_user_is_project_maintainer`).
-- Enable RLS on all public tables.
-- Add policies for user-scoped tables (user, kyc, profiles, wallet, notification): users can only see/edit their own rows.
-- Add policies for project and project_maintainer (and project_review for admins).
-- Add read-only policies for catalog tables (category, subcategory, tier_definition).
-- Leave backend-only tables (campaign, escrow, email_job, etc.) with RLS on and no policies, so only roles with BYPASSRLS (e.g. Prisma) can access them.
+- Enable RLS on the eight application tables in the migration.
+- Add SELECT-only policies for `users`, `wallets`, `payment_requests`, `payments`, `transactions`, and `webauthn_credentials`.
+- Resolve `auth.uid()::text` against `users."supabaseUserId"`; related tables use the internal user ID in quoted camelCase columns. Payments are readable by their sender or receiver.
+- Leave `webauthn_challenges` and `used_request_ids` with RLS enabled and no client policies. No client INSERT, UPDATE, or DELETE policies are defined.
 
-The logic of each policy is documented in [ROW_LEVEL_SECURITY.md](./ROW_LEVEL_SECURITY.md). See also [Supabase Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security) for details.
+For a disposable PostgreSQL database, run `npm run prisma:migrate:deploy`, then `psql "$DIRECT_URL" -v ON_ERROR_STOP=1 -f test/rls.integration.sql`. The test supplies a local `auth.uid()` stub, applies every policy, checks user and wallet isolation under a non-owner role, and rolls back its fixtures and policies. This does not test the hosted Supabase authentication service. See also [Supabase Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
 ## 🔐 Security Notes
 
