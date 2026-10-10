@@ -8,18 +8,15 @@ alwaysApply: true
 
 ## Architecture Overview
 
-NestJS + Prisma + Supabase Auth, organized by **feature modules** with global guards.
+NestJS + Prisma + Supabase Auth, organized by **feature modules** with a single global authentication guard.
 
 ```
-Request → Helmet / CORS → ThrottlerGuard → SupabaseAuthGuard → RolesGuard → Controller → Service → Prisma → PostgreSQL
+Request → Helmet / Compression / CORS → SupabaseAuthGuard → Controller → Service → Prisma → PostgreSQL
 ```
 
-- **Auth is global**: `SupabaseAuthGuard` and `RolesGuard` registered as `APP_GUARD`. No need for `@UseGuards()` on controllers.
-- **Public endpoints**: Use `@Public()` decorator.
-- **Optional auth**: Use `@OptionalAuth()` to enrich response when token is present.
-- **New user flow**: Use `@AllowNewUsers()` for registration endpoints.
-- **Role-based access**: Use `@Roles(UserRole.ADMIN)` etc.
-- **Events for decoupling**: Use `EventEmitter2` to emit events instead of importing other feature modules directly.
+- **Auth is global**: `SupabaseAuthGuard` is registered as `APP_GUARD` in `AppModule`. All routes require authentication by default.
+- **Public endpoints**: Use `@Public()` decorator to exempt routes from authentication.
+- **Current user**: Use `@CurrentUser()` to inject the validated `AuthenticatedUser` payload into controller handlers.
 
 ## Project Structure
 
@@ -27,92 +24,111 @@ Request → Helmet / CORS → ThrottlerGuard → SupabaseAuthGuard → RolesGuar
 vela-server/
 ├── prisma/
 │   ├── schema.prisma
-│   └── seed.ts
+│   ├── seed.ts
+│   └── migrations/
 │
 ├── src/
 │   ├── main.ts                          # Bootstrap: Helmet, CORS, ValidationPipe, Swagger
-│   ├── app.module.ts                    # Root module: ConfigModule, Throttler, EventEmitter, guards
+│   ├── app.module.ts                    # Root module: ConfigModule, EventEmitterModule, domain modules, global guard
+│   ├── app.controller.ts
+│   ├── app.service.ts
 │   │
-│   ├── auth/                            # Auth module (self-contained)
-│   │   ├── auth.module.ts              # Imports PassportModule, provides SupabaseStrategy
-│   │   ├── index.ts                    # Barrel export
-│   │   ├── interfaces/
-│   │   │   ├── authenticated-user.interface.ts
-│   │   │   └── jwt-payload.interface.ts
+│   ├── auth/                            # Auth module
+│   │   ├── auth.module.ts              # Provides SupabaseStrategy, SupabaseAuthGuard
 │   │   ├── strategies/
-│   │   │   └── supabase.strategy.ts    # Validates JWT via Supabase, looks up user in DB
+│   │   │   └── supabase.strategy.ts    # Validates Supabase JWT, resolves user in DB
 │   │   ├── guards/
-│   │   │   ├── supabase-auth.guard.ts  # Handles @Public, @OptionalAuth, @AllowNewUsers
-│   │   │   └── roles.guard.ts          # Checks @Roles() metadata
-│   │   └── decorators/
-│   │       ├── public.decorator.ts
-│   │       ├── roles.decorator.ts
-│   │       ├── current-user.decorator.ts
-│   │       ├── allow-new-users.decorator.ts
-│   │       └── optional-auth.decorator.ts
+│   │   │   └── supabase-auth.guard.ts  # Handles @Public() metadata and Bearer JWT validation
+│   │   ├── decorators/
+│   │   │   ├── index.ts                # Barrel export for CurrentUser and Public
+│   │   │   ├── public.decorator.ts
+│   │   │   └── current-user.decorator.ts
+│   │   └── supabase/
+│   │       ├── supabase.module.ts
+│   │       └── supabase.service.ts     # Supabase admin client wrapper
 │   │
-│   ├── database/                        # Global database module
+│   ├── common/                          # Shared cross-cutting concerns
+│   │   ├── filters/
+│   │   │   └── http-exception.filter.ts
+│   │   └── interfaces/
+│   │       └── authenticated-user.interface.ts
+│   │
+│   ├── database/                        # Database access module
 │   │   ├── database.module.ts
-│   │   ├── prisma.service.ts           # PrismaClient + pg adapter + lifecycle hooks
+│   │   ├── prisma.service.ts           # PrismaClient with lifecycle hooks
 │   │   └── index.ts
 │   │
-│   └── modules/                         # Feature modules
-│       ├── users/
-│       │   ├── users.module.ts
-│       │   ├── users.controller.ts
-│       │   ├── users.service.ts
-│       │   ├── users.controller.spec.ts
-│       │   ├── users.service.spec.ts
-│       │   └── dto/
-│       │       ├── index.ts
-│       │       ├── create-user.dto.ts
-│       │       ├── update-user.dto.ts
-│       │       └── ...
-│       │
+│   ├── stellar/                         # Stellar blockchain integration
+│   │   ├── stellar.module.ts
+│   │   └── stellar.service.ts
+│   │
+│   ├── webauthn/                        # Passkey authentication and verification
+│   │   ├── webauthn.module.ts
+│   │   ├── webauthn.controller.ts
+│   │   ├── webauthn.service.ts
+│   │   └── webauthn.repository.ts
+│   │
+│   └── modules/                         # Core domain feature modules
 │       ├── payment-requests/
+│       │   ├── payment-requests.module.ts
+│       │   ├── payment-requests.controller.ts
+│       │   ├── payment-requests.service.ts
+│       │   └── payment-requests.repository.ts
 │       ├── payments/
-│       ├── transactions/
-│       └── ...
+│       │   ├── payments.module.ts
+│       │   ├── payments.controller.ts
+│       │   ├── payments.service.ts
+│       │   └── payments.repository.ts
+│       └── users/
+│           ├── users.module.ts
+│           └── users.service.ts
 │
-├── test/                                # E2E tests
+├── test/                                # Unit and e2e test suites
 ├── .env.example
 ├── package.json
-├── tsconfig.json
-└── prisma.config.ts
+└── tsconfig.json
 ```
 
 ## Key Conventions
 
 ### Feature Module Pattern
-Each module is self-contained: `module.ts`, `controller.ts`, `service.ts`, `dto/`, `*.spec.ts`.
-Register every new module in `app.module.ts` imports.
+
+Each module encapsulates its domain logic: `*.module.ts`, `*.controller.ts` (if exposing HTTP endpoints), `*.service.ts`, `*.repository.ts` (if interacting with Prisma), and `dto/`. Register all root feature modules in `app.module.ts`.
 
 ### Controller Rules
+
 - Thin controllers: validate access, delegate to service, return result.
 - Use `@CurrentUser()` with `AuthenticatedUser` type (never `any`).
 - Use `ForbiddenException` for access control, `BadRequestException` for validation.
-- All endpoints must have `@ApiOperation`, `@ApiResponse`, `@ApiParam`/`@ApiQuery` for Swagger.
+- All endpoints should have `@ApiOperation`, `@ApiResponse`, `@ApiParam`/`@ApiQuery` for Swagger docs.
 
 ### Service Rules
+
 - All business logic lives in services.
 - Throw HTTP exceptions directly (`NotFoundException`, `ConflictException`, etc.).
-- Use `EventEmitter2` for side effects (notifications, activity logs, reputation).
-- Never import other feature modules — use events for cross-module communication.
+- Use `EventEmitter2` for asynchronous decoupled events (such as audit logs or notifications).
+- Feature modules import necessary sibling modules directly where required (for example, `PaymentsModule` imports `WebAuthnModule`, `UsersModule`, and `StellarModule`).
 
 ### DTO Rules
+
 - Use `class-validator` decorators on every field.
 - Use `@ApiProperty` / `@ApiPropertyOptional` for Swagger docs.
 - Use `@Transform()` for normalization (trim, lowercase, etc.).
 
 ### Imports
+
 ```typescript
-// Auth decorators/interfaces — always from barrel
-import { CurrentUser, Roles, Public, AllowNewUsers, OptionalAuth } from '../../auth';
-import { AuthenticatedUser } from '../../auth/interfaces';
+// Auth decorators and user interface
+import { CurrentUser, Public } from './auth/decorators';
+import { AuthenticatedUser } from './common/interfaces/authenticated-user.interface';
 
 // Prisma — from database module
-import { PrismaService } from '../../database/prisma.service';
+import { PrismaService } from './database/prisma.service';
 
 // Prisma enums — from @prisma/client
-import { StellarNetwork, PaymentStatus } from '@prisma/client';
+import {
+  StellarNetwork,
+  PaymentStatus,
+  PaymentRequestStatus,
+} from '@prisma/client';
 ```
