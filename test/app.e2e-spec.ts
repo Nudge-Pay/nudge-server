@@ -7,12 +7,22 @@ import configuration from '../src/config/configuration';
 import { configureApp } from '../src/main';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/database/prisma.service';
+import { StellarService } from '../src/stellar/stellar.service';
 import type { Application as ExpressApplication } from 'express';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<ExpressApplication>;
+  let mockStellarService: { getHealth: jest.Mock };
 
   beforeEach(async () => {
+    mockStellarService = {
+      getHealth: jest.fn().mockResolvedValue({
+        status: 'ok',
+        network: 'testnet',
+        horizon: { healthy: true, latestLedger: 12345 },
+        rpc: { healthy: true, latestLedger: 12345 },
+      }),
+    };
     process.env.NODE_ENV = 'test';
     process.env.PORT = '3000';
     process.env.API_PREFIX = 'v1';
@@ -52,7 +62,13 @@ describe('AppController (e2e)', () => {
       ],
     })
       .overrideProvider(PrismaService)
-      .useValue({ $connect: jest.fn(), $disconnect: jest.fn() })
+      .useValue({
+        $connect: jest.fn(),
+        $disconnect: jest.fn(),
+        $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
+      })
+      .overrideProvider(StellarService)
+      .useValue(mockStellarService)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -80,6 +96,45 @@ describe('AppController (e2e)', () => {
   it('should initialize the server with valid environment variables', () => {
     expect(app).toBeDefined();
     expect(app.getHttpServer()).toBeDefined();
+  });
+
+  describe('GET /v1/health', () => {
+    it('returns 200 without a bearer token and reports ok when dependencies are healthy', async () => {
+      const response = await request(app.getHttpServer()).get('/v1/health');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        status: 'ok',
+        database: 'ok',
+        stellar: {
+          status: 'ok',
+          network: 'testnet',
+          horizon: { healthy: true, latestLedger: 12345 },
+          rpc: { healthy: true, latestLedger: 12345 },
+        },
+      });
+    });
+
+    it('reports degraded when stellar service reports degraded', async () => {
+      mockStellarService.getHealth.mockResolvedValueOnce({
+        status: 'degraded',
+        network: 'testnet',
+        horizon: { healthy: false },
+        rpc: { healthy: true, latestLedger: 12345 },
+      });
+
+      const response = await request(app.getHttpServer()).get('/v1/health');
+
+      expect(response.status).toBe(200);
+      const body = response.body as {
+        status: string;
+        database: string;
+        stellar: { status: string };
+      };
+      expect(body.status).toBe('degraded');
+      expect(body.database).toBe('ok');
+      expect(body.stellar.status).toBe('degraded');
+    });
   });
 
   afterEach(async () => {

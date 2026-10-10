@@ -13,6 +13,7 @@ import { PaymentRequestsModule } from './modules/payment-requests/payment-reques
 import { WebAuthnModule } from './webauthn/webauthn.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { StellarModule } from './stellar/stellar.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { StellarModule } from './stellar/stellar.module';
     WebAuthnModule,
     PaymentsModule,
     StellarModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [
