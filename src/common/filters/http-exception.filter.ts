@@ -109,10 +109,19 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
     }
 
+    if (!code) {
+      code = 'INTERNAL_ERROR';
+    }
+
     const logMessage = `${method} ${path} ${status} — ${
       Array.isArray(message) ? message.join(', ') : message
     }`;
-    this.logger.error(logMessage);
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      const stack = exception instanceof Error ? exception.stack : undefined;
+      this.logger.error(logMessage, stack);
+    } else {
+      this.logger.warn(logMessage);
+    }
 
     response.status(status).json({
       statusCode: status,
