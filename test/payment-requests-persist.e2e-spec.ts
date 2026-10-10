@@ -100,7 +100,7 @@ describe('PaymentRequests persist + retrieve (e2e)', () => {
       create: jest.fn().mockResolvedValue({
         id: createdPrId,
         externalRequestId: 'req_001',
-        receiverUserId: 'test-supabase-user-id',
+        receiverUserId: 'internal-owner-id',
         recipient: VALID_RECIPIENT,
         asset: 'USDC',
         amount: { toString: () => '10.00' },
@@ -114,7 +114,7 @@ describe('PaymentRequests persist + retrieve (e2e)', () => {
       findById: jest.fn().mockResolvedValue({
         id: createdPrId,
         externalRequestId: 'req_001',
-        receiverUserId: 'test-supabase-user-id',
+        receiverUserId: 'internal-owner-id',
         recipient: VALID_RECIPIENT,
         asset: 'USDC',
         amount: { toString: () => '10.00' },
@@ -143,7 +143,16 @@ describe('PaymentRequests persist + retrieve (e2e)', () => {
       .overrideProvider(PaymentRequestsRepository)
       .useValue(mockRepo)
       .overrideProvider(UsersService)
-      .useValue({ createOrUpdateUser: jest.fn().mockResolvedValue({}) })
+      .useValue({
+        createOrUpdateUser: jest.fn().mockResolvedValue({}),
+        getUserBySupabaseId: jest.fn((id: string) => {
+          const ownerId = 'internal-owner-id';
+          const foreignId = 'internal-foreign-id';
+          return Promise.resolve({
+            id: id === 'test-supabase-user-id' ? ownerId : foreignId,
+          });
+        }),
+      })
       .compile();
 
     app = moduleFixture.createNestApplication();
