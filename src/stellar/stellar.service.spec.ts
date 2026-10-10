@@ -53,6 +53,7 @@ describe('StellarService', () => {
   let horizon: HorizonMock;
   let rpcServer: RpcMock;
   let transactionCall: jest.Mock;
+  let configService: { getOrThrow: jest.Mock };
 
   beforeEach(async () => {
     transactionCall = jest.fn();
@@ -67,6 +68,17 @@ describe('StellarService', () => {
     rpcServer = {
       getHealth: jest.fn(),
       simulateTransaction: jest.fn(),
+    };
+
+    configService = {
+      getOrThrow: jest.fn((key: string) => {
+        const values: Record<string, number> = {
+          'payments.submitTimeoutMs': 300_000,
+          'payments.pollIntervalMs': 2_000,
+          'payments.pollMaxAttempts': 30,
+        };
+        return values[key];
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -86,15 +98,7 @@ describe('StellarService', () => {
         },
         {
           provide: ConfigService,
-          useValue: {
-            getOrThrow: jest.fn((key: string) => {
-              const values: Record<string, number> = {
-                'payments.pollIntervalMs': 2_000,
-                'payments.pollMaxAttempts': 30,
-              };
-              return values[key];
-            }),
-          },
+          useValue: configService,
         },
       ],
     }).compile();
@@ -287,6 +291,73 @@ describe('StellarService', () => {
       });
       expect(horizon.loadAccount).not.toHaveBeenCalled();
     });
+
+    it('defaults to payments.submitTimeoutMs converted to seconds when timeoutSeconds is omitted', async () => {
+      const before = Math.floor(Date.now() / 1000);
+      const transaction = await service.buildPaymentTransaction({
+        sourcePublicKey: SOURCE_PUBLIC_KEY,
+        destination: DESTINATION_PUBLIC_KEY,
+        asset: 'XLM',
+        amount: '1',
+      });
+
+      const maxTime = Number(transaction.timeBounds?.maxTime);
+      expect(maxTime - before).toBeGreaterThanOrEqual(300);
+      expect(maxTime - before).toBeLessThanOrEqual(305);
+    });
+
+    it('changing PAYMENT_SUBMIT_TIMEOUT_MS changes the built transaction timeBounds', async () => {
+      configService.getOrThrow.mockImplementation((key: string) => {
+        if (key === 'payments.submitTimeoutMs') return 600_000;
+        if (key === 'payments.pollIntervalMs') return 2_000;
+        if (key === 'payments.pollMaxAttempts') return 30;
+        return undefined;
+      });
+
+      const before = Math.floor(Date.now() / 1000);
+      const transaction = await service.buildPaymentTransaction({
+        sourcePublicKey: SOURCE_PUBLIC_KEY,
+        destination: DESTINATION_PUBLIC_KEY,
+        asset: 'XLM',
+        amount: '1',
+      });
+
+      const maxTime = Number(transaction.timeBounds?.maxTime);
+      expect(maxTime - before).toBeGreaterThanOrEqual(600);
+      expect(maxTime - before).toBeLessThanOrEqual(605);
+    });
+
+    it('explicit params.timeoutSeconds overrides the configuration', async () => {
+      const before = Math.floor(Date.now() / 1000);
+      const transaction = await service.buildPaymentTransaction({
+        sourcePublicKey: SOURCE_PUBLIC_KEY,
+        destination: DESTINATION_PUBLIC_KEY,
+        asset: 'XLM',
+        amount: '1',
+        timeoutSeconds: 45,
+      });
+
+      const maxTime = Number(transaction.timeBounds?.maxTime);
+      expect(maxTime - before).toBeGreaterThanOrEqual(45);
+      expect(maxTime - before).toBeLessThanOrEqual(50);
+    });
+
+    it.each([0, -5, 1.5, NaN])(
+      'rejects invalid timeoutSeconds %s with PAYMENT_XDR_INVALID',
+      async (timeoutSeconds) => {
+        await expect(
+          service.buildPaymentTransaction({
+            sourcePublicKey: SOURCE_PUBLIC_KEY,
+            destination: DESTINATION_PUBLIC_KEY,
+            asset: 'XLM',
+            amount: '1',
+            timeoutSeconds,
+          }),
+        ).rejects.toMatchObject({
+          response: { code: 'PAYMENT_XDR_INVALID' },
+        });
+      },
+    );
   });
 
   describe('simulateTransaction', () => {
