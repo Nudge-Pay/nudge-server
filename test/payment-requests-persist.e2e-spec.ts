@@ -194,6 +194,26 @@ describe('PaymentRequests persist + retrieve (e2e)', () => {
       expect(res.status).toBe(400);
     });
 
+    it('returns 400 when type is not "payment-request" (ValidationPipe)', async () => {
+      const res = await request(app.getHttpServer())
+        .post(PERSIST_ROUTE)
+        .set('Authorization', bearer())
+        .send(validCreateBody({ type: 'invoice' }));
+
+      expect(res.status).toBe(400);
+      expect(mockRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when version is not 1 (ValidationPipe)', async () => {
+      const res = await request(app.getHttpServer())
+        .post(PERSIST_ROUTE)
+        .set('Authorization', bearer())
+        .send(validCreateBody({ version: 2 }));
+
+      expect(res.status).toBe(400);
+      expect(mockRepo.create).not.toHaveBeenCalled();
+    });
+
     it('returns 422 when asset is unsupported (v1 contract)', async () => {
       const res = await request(app.getHttpServer())
         .post(PERSIST_ROUTE)
