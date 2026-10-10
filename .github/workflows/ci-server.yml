@@ -6,6 +6,7 @@ on:
       - 'src/**'
       - 'test/**'
       - 'prisma/**'
+      - 'scripts/**'
       - 'package.json'
       - 'package-lock.json'
       - 'tsconfig.json'
@@ -23,6 +24,7 @@ on:
       - 'src/**'
       - 'test/**'
       - 'prisma/**'
+      - 'scripts/**'
       - 'package.json'
       - 'package-lock.json'
       - 'tsconfig.json'
@@ -66,6 +68,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Smoke check compiled server
+        run: npm run test:smoke
 
       - name: Run unit tests
         run: npm run test
