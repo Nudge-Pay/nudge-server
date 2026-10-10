@@ -34,5 +34,6 @@ The test suites mock infrastructure and do not require production credentials. S
 - Coordinate changes to the payment payload, API types and authentication across both repositories.
 - Preserve historical migration IDs and the deferred RP domain, secure-storage identifiers, NFC MIME type and app scheme until a migration is agreed.
 - Use concise, factual commit messages and retain third-party copyright notices.
+- Branch protection rules should require the `summary` gate check (`Summary Gate`), which aggregates all workflow dependency jobs and ensures pull requests only merge when every check succeeds.
 
 Contributions are made under the repository's [MIT license](LICENSE). If you need clarification or find unrelated work, open a focused issue describing the observed behavior and expected result.
