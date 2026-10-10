@@ -443,7 +443,7 @@ describe('StellarService', () => {
       jest.useRealTimers();
     });
 
-    it('maps polling provider failures to STELLAR_NETWORK_ERROR', async () => {
+    it('maps polling provider failures to STELLAR_NETWORK_ERROR when attempts exhausted', async () => {
       transactionCall.mockRejectedValue(
         Object.assign(new Error('private provider timeout details'), {
           response: { status: 503 },
@@ -461,6 +461,83 @@ describe('StellarService', () => {
           message: 'Unable to poll the Stellar transaction.',
         },
       });
+    });
+
+    it('retries first-attempt 503 and resolves as confirmed: true on subsequent success', async () => {
+      transactionCall
+        .mockRejectedValueOnce({ response: { status: 503 } })
+        .mockResolvedValueOnce({
+          successful: true,
+          hash: TX_HASH,
+          ledger_attr: 12345,
+        });
+
+      await expect(
+        service.pollTransactionStatus(TX_HASH, {
+          intervalMs: 0,
+          maxAttempts: 2,
+        }),
+      ).resolves.toEqual({
+        confirmed: true,
+        hash: TX_HASH,
+        ledger: 12345,
+      });
+      expect(transactionCall).toHaveBeenCalledTimes(2);
+    });
+
+    it('retries transient 429 rate limit failure and resolves on subsequent success', async () => {
+      transactionCall
+        .mockRejectedValueOnce({ response: { status: 429 } })
+        .mockResolvedValueOnce({
+          successful: true,
+          hash: TX_HASH,
+          ledger_attr: 99999,
+        });
+
+      await expect(
+        service.pollTransactionStatus(TX_HASH, {
+          intervalMs: 0,
+          maxAttempts: 2,
+        }),
+      ).resolves.toEqual({
+        confirmed: true,
+        hash: TX_HASH,
+        ledger: 99999,
+      });
+      expect(transactionCall).toHaveBeenCalledTimes(2);
+    });
+
+    it('exhausts maxAttempts on repeated 5xx errors and throws STELLAR_NETWORK_ERROR', async () => {
+      transactionCall.mockRejectedValue({ response: { status: 500 } });
+
+      await expect(
+        service.pollTransactionStatus(TX_HASH, {
+          intervalMs: 0,
+          maxAttempts: 3,
+        }),
+      ).rejects.toMatchObject({
+        response: {
+          code: STELLAR_ERROR.NETWORK,
+          message: 'Unable to poll the Stellar transaction.',
+        },
+      });
+      expect(transactionCall).toHaveBeenCalledTimes(3);
+    });
+
+    it('immediately throws STELLAR_NETWORK_ERROR on non-transient 4xx errors like 400', async () => {
+      transactionCall.mockRejectedValue({ response: { status: 400 } });
+
+      await expect(
+        service.pollTransactionStatus(TX_HASH, {
+          intervalMs: 0,
+          maxAttempts: 3,
+        }),
+      ).rejects.toMatchObject({
+        response: {
+          code: STELLAR_ERROR.NETWORK,
+        },
+      });
+      expect(transactionCall).toHaveBeenCalledTimes(1);
     });
   });
 });
