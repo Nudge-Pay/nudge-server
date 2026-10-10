@@ -35,20 +35,44 @@ export class WebAuthnRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   createChallenge(input: CreateChallengeInput) {
-    return this.prisma.webAuthnChallenge.create({
-      data: {
-        userId: input.userId,
-        challenge: input.challenge,
-        type: input.type,
-        paymentId: input.paymentId ?? null,
-        expiresAt: input.expiresAt,
-      },
+    return this.prisma.$transaction(async (tx: PrismaTx) => {
+      const now = new Date();
+      await tx.webAuthnChallenge.deleteMany({
+        where: {
+          OR: [
+            {
+              userId: input.userId,
+              type: input.type,
+              paymentId: input.paymentId ?? null,
+            },
+            {
+              expiresAt: { lte: now },
+            },
+          ],
+        },
+      });
+
+      return tx.webAuthnChallenge.create({
+        data: {
+          userId: input.userId,
+          challenge: input.challenge,
+          type: input.type,
+          paymentId: input.paymentId ?? null,
+          expiresAt: input.expiresAt,
+        },
+      });
     });
   }
 
   async consumeLatestValid(query: ConsumeChallengeQuery) {
     return this.prisma.$transaction(async (tx: PrismaTx) => {
       const now = new Date();
+      await tx.webAuthnChallenge.deleteMany({
+        where: {
+          expiresAt: { lte: now },
+        },
+      });
+
       const candidate = await tx.webAuthnChallenge.findFirst({
         where: {
           userId: query.userId,
