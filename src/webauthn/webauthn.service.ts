@@ -87,7 +87,7 @@ export class WebAuthnService {
       })),
       authenticatorSelection: {
         residentKey: 'preferred',
-        userVerification: 'preferred',
+        userVerification: 'required',
       },
     });
 
@@ -126,7 +126,7 @@ export class WebAuthnService {
         expectedChallenge: challenge.challenge,
         expectedOrigin: origin,
         expectedRPID: rpId,
-        requireUserVerification: false,
+        requireUserVerification: true,
       });
     } catch (err) {
       throw this.error(
@@ -188,7 +188,7 @@ export class WebAuthnService {
       allowCredentials: credentials.map((c: StoredCredentialRecord) => ({
         id: c.credentialId,
       })),
-      userVerification: 'preferred',
+      userVerification: 'required',
     });
 
     await this.storeChallenge(
@@ -236,7 +236,7 @@ export class WebAuthnService {
         expectedChallenge: challenge.challenge,
         expectedOrigin: origin,
         expectedRPID: rpId,
-        requireUserVerification: false,
+        requireUserVerification: true,
         credential: {
           id: credential.credentialId,
           publicKey: new Uint8Array(credential.publicKey),
