@@ -77,17 +77,14 @@ export class PaymentRequestsRepository {
 
   /**
    * Find a PaymentRequest by internal UUID.
-   * If receiverUserId is provided, enforces that the record belongs to that receiver.
+   * Requires the internal receiver ID and scopes the database query to that owner.
    * Throws NotFoundException when not found or owned by a different user.
    */
-  async findById(id: string, receiverUserId?: string) {
+  async findById(id: string, receiverUserId: string) {
     const record = await this.prisma.paymentRequest.findUnique({
-      where: { id },
+      where: { id, receiverUserId },
     });
-    if (
-      !record ||
-      (receiverUserId !== undefined && record.receiverUserId !== receiverUserId)
-    ) {
+    if (!record) {
       throw new NotFoundException({
         statusCode: 404,
         message: `Payment request ${id} not found.`,
