@@ -114,4 +114,8 @@ export class WebAuthnRepository {
   deleteById(id: string) {
     return this.prisma.webAuthnCredential.delete({ where: { id } });
   }
+
+  findPaymentById(id: string) {
+    return this.prisma.payment.findUnique({ where: { id } });
+  }
 }
