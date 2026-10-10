@@ -11,7 +11,7 @@ This guide explains how to set up and use Prisma with Supabase in the Core API.
 
 - Supabase account and project
 - Node.js installed
-- Dependencies installed (`npm install`)
+- Dependencies installed (`npm install` or `npm ci`)
 
 ## 🚀 Initial Setup
 
@@ -41,7 +41,7 @@ DIRECT_URL="postgresql://postgres:[YOUR-PASSWORD]@[YOUR-PROJECT-REF].supabase.co
 
 ### 3. Update Prisma Schema
 
-Edit `prisma/schema.prisma` with your actual data models. The file currently has an example `User` model.
+Edit `prisma/schema.prisma` with your actual data models. Always create new migrations using `npm run prisma:migrate` rather than manually editing generated migration files under `prisma/migrations/`.
 
 ### 4. Generate Prisma Client
 
@@ -51,29 +51,30 @@ npm run prisma:generate
 
 This generates the Prisma Client based on your schema.
 
-### 5. Push Schema to Database
+### 5. Apply Migrations to Database
 
-For development (no migration files):
-
-```bash
-npm run prisma:push
-```
-
-Or create a migration (recommended for production):
+For development:
 
 ```bash
 npm run prisma:migrate
 ```
 
+For production deployments:
+
+```bash
+npm run prisma:migrate:deploy
+```
+
 ## 📚 Available Commands
 
-| Command                   | Description                    |
-| ------------------------- | ------------------------------ |
-| `npm run prisma:generate` | Generate Prisma Client         |
-| `npm run prisma:migrate`  | Create and apply migrations    |
-| `npm run prisma:push`     | Push schema changes (dev only) |
-| `npm run prisma:studio`   | Open Prisma Studio (GUI)       |
-| `npm run prisma:seed`     | Seed the database              |
+| Command                         | Description                                                       |
+| ------------------------------- | ----------------------------------------------------------------- |
+| `npm run prisma:generate`       | Generate Prisma Client                                            |
+| `npm run prisma:migrate`        | Create and apply migrations in development (`prisma migrate dev`) |
+| `npm run prisma:migrate:deploy` | Apply pending migrations in production (`prisma migrate deploy`)  |
+| `npm run prisma:reset`          | Reset the database and re-run all migrations                      |
+| `npm run prisma:studio`         | Open Prisma Studio (GUI)                                          |
+| `npm run prisma:seed`           | Seed the database                                                 |
 
 ## 🏗️ Architecture
 
@@ -99,8 +100,8 @@ src/
 The `PrismaService` is globally available. Just inject it:
 
 ```typescript
-import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../database";
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../database';
 
 @Injectable()
 export class UsersService {
@@ -168,7 +169,7 @@ npm run prisma:migrate
 
 ```bash
 # Apply pending migrations
-npx prisma migrate deploy
+npm run prisma:migrate:deploy
 ```
 
 ## 🛡️ Best Practices
@@ -183,30 +184,33 @@ npx prisma migrate deploy
 
 ## 🔒 Row Level Security (RLS)
 
-Row Level Security is enabled via a SQL script that you run once in Supabase. It protects data when access goes through the Supabase Data API (anon/authenticated keys). The Core API uses Prisma with a role that typically bypasses RLS, so authorization remains enforced in NestJS guards and services; RLS adds defense in depth.
+Row Level Security is enabled via a SQL script that you run in Supabase. It protects data when access goes through direct Supabase client connections (dashboard, analytics). The Core API uses Prisma with a service role that bypasses RLS, so authorization remains enforced in NestJS guards and services; RLS adds defense in depth.
 
 **To apply RLS:**
 
 1. Open your Supabase project dashboard.
 2. Go to **SQL Editor**.
-3. Open `prisma/supabase-rls.sql` from this repo, copy its contents, and run it.
+3. Open `prisma/rls.sql` from this repo, copy its contents, and run it.
 
 The script will:
 
-- Create a `private` schema and helper functions (`current_user_has_role`, `current_user_is_project_maintainer`).
-- Enable RLS on all public tables.
-- Add policies for user-scoped tables (user, kyc, profiles, wallet, notification): users can only see/edit their own rows.
-- Add policies for project and project_maintainer (and project_review for admins).
-- Add read-only policies for catalog tables (category, subcategory, tier_definition).
-- Leave backend-only tables (campaign, escrow, email_job, etc.) with RLS on and no policies, so only roles with BYPASSRLS (e.g. Prisma) can access them.
+- Enable RLS on all 8 tables (`users`, `wallets`, `payment_requests`, `payments`, `transactions`, `webauthn_credentials`, `webauthn_challenges`, `used_request_ids`).
+- Add SELECT policies for user-scoped tables ensuring authenticated users only read their own records:
+  - `users`: read own profile (`"supabaseUserId" = auth.uid()::text`).
+  - `wallets`: read own wallets.
+  - `payment_requests`: read own payment requests.
+  - `payments`: read own payments (where the user is sender or receiver).
+  - `transactions`: read own transaction history.
+  - `webauthn_credentials`: read own credentials.
+- Leave backend-only tables (`webauthn_challenges`, `used_request_ids`) with RLS enabled and no direct client access, accessible only via the backend service role key.
 
-The logic of each policy is documented in [ROW_LEVEL_SECURITY.md](./ROW_LEVEL_SECURITY.md). See also [Supabase Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security) for details.
+See also [Supabase Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security) for details.
 
 ## 🔐 Security Notes
 
 - Never expose your database credentials
 - Use environment variables for all sensitive data
-- Enable Row Level Security (RLS) in Supabase using the script above
+- Enable Row Level Security (RLS) in Supabase using `prisma/rls.sql`
 - Use Supabase's built-in auth when possible
 
 ## 📖 Resources
