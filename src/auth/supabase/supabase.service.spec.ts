@@ -82,6 +82,74 @@ describe('SupabaseService', () => {
     };
     const token = jwt.sign(expiredPayload, testSecret, { algorithm: 'HS256' });
 
-    expect(() => service.verifyToken(token)).toThrow();
+    expect(() => service.verifyToken(token)).toThrow('JWT token expired');
+  });
+
+  describe('algorithm allow-list and clock-tolerance (#106)', () => {
+    it('should reject a token signed with HS512 using the same secret', () => {
+      const payload = {
+        sub: 'user-hs512',
+        email: 'hs512@example.com',
+        aud: 'authenticated',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      };
+      const token = jwt.sign(payload, testSecret, { algorithm: 'HS512' });
+
+      expect(() => service.verifyToken(token)).toThrow('Invalid JWT token');
+    });
+
+    it('should accept a token expired 4 minutes ago under 5-minute clock tolerance', () => {
+      const now = Math.floor(Date.now() / 1000);
+      const payload = {
+        sub: 'user-tolerance-4m',
+        email: 'tolerance4m@example.com',
+        aud: 'authenticated',
+        iat: now - 3600,
+        exp: now - 4 * 60,
+      };
+      const token = jwt.sign(payload, testSecret, { algorithm: 'HS256' });
+
+      const result = service.verifyToken(token);
+      expect(result).toBeDefined();
+      expect(result.sub).toBe('user-tolerance-4m');
+      expect(result.email).toBe('tolerance4m@example.com');
+    });
+
+    it('should reject a token expired 6 minutes ago exceeding 5-minute clock tolerance', () => {
+      const now = Math.floor(Date.now() / 1000);
+      const payload = {
+        sub: 'user-tolerance-6m',
+        email: 'tolerance6m@example.com',
+        aud: 'authenticated',
+        iat: now - 3600,
+        exp: now - 6 * 60,
+      };
+      const token = jwt.sign(payload, testSecret, { algorithm: 'HS256' });
+
+      expect(() => service.verifyToken(token)).toThrow('JWT token expired');
+    });
+
+    it('should distinguish errors between malformed and expired tokens', () => {
+      const malformedToken = 'malformed.token.payload';
+      expect(() => service.verifyToken(malformedToken)).toThrow(
+        'Invalid JWT token',
+      );
+
+      const now = Math.floor(Date.now() / 1000);
+      const expiredPayload = {
+        sub: 'user-distinguish-test',
+        email: 'distinguish@example.com',
+        iat: now - 7200,
+        exp: now - 3600,
+      };
+      const expiredToken = jwt.sign(expiredPayload, testSecret, {
+        algorithm: 'HS256',
+      });
+
+      expect(() => service.verifyToken(expiredToken)).toThrow(
+        'JWT token expired',
+      );
+    });
   });
 });
