@@ -1,4 +1,8 @@
-import { Injectable, UnprocessableEntityException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import {
   PaymentRequestV1,
   PaymentRequestValidationError,
@@ -7,6 +11,7 @@ import {
 import { CreatePaymentRequestDto } from './dto/create-payment-request.dto';
 import { PaymentRequestResponseDto } from './dto/payment-request-response.dto';
 import { PaymentRequestsRepository } from './payment-requests.repository';
+import { UsersService } from '../users/users.service';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 
 type PrismaPaymentRequest = Awaited<
@@ -36,7 +41,10 @@ function toResponseDto(pr: PrismaPaymentRequest): PaymentRequestResponseDto {
 
 @Injectable()
 export class PaymentRequestsService {
-  constructor(private readonly repo: PaymentRequestsRepository) {}
+  constructor(
+    private readonly repo: PaymentRequestsRepository,
+    private readonly usersService: UsersService,
+  ) {}
 
   /** SRV-036/037: Stateless validation — no DB touch. */
   validate(payload: unknown): PaymentRequestValidationResponse {
@@ -85,17 +93,48 @@ export class PaymentRequestsService {
       });
     }
 
+    const receiver = await this.usersService.getUserBySupabaseId(
+      user.supabaseUserId,
+    );
+    if (!receiver) {
+      throw new NotFoundException({
+        statusCode: 404,
+        message: 'User not found.',
+        code: 'USER_NOT_FOUND',
+      });
+    }
+
     const paymentRequest = await this.repo.create({
       dto,
-      receiverUserId: user.supabaseUserId,
+      receiverUserId: receiver.id,
     });
 
     return toResponseDto(paymentRequest);
   }
 
-  /** SRV-040: Retrieve by internal UUID. */
-  async findById(id: string): Promise<PaymentRequestResponseDto> {
-    const pr = await this.repo.findById(id);
+  /** SRV-040: Retrieve by internal UUID for the authenticated owner. */
+  async findById(
+    id: string,
+    user: AuthenticatedUser,
+  ): Promise<PaymentRequestResponseDto> {
+    const receiver = await this.usersService.getUserBySupabaseId(
+      user.supabaseUserId,
+    );
+    if (!receiver) {
+      throw new NotFoundException({
+        statusCode: 404,
+        message: `Payment request ${id} not found.`,
+        code: 'PAYMENT_REQUEST_NOT_FOUND',
+      });
+    }
+    const pr = await this.repo.findById(id, receiver.id);
+    if (pr.receiverUserId !== receiver.id) {
+      throw new NotFoundException({
+        statusCode: 404,
+        message: `Payment request ${id} not found.`,
+        code: 'PAYMENT_REQUEST_NOT_FOUND',
+      });
+    }
     return toResponseDto(pr);
   }
 }
