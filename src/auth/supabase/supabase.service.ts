@@ -9,7 +9,7 @@ export interface SupabaseJwtPayload {
   email_verified?: boolean;
   iat: number;
   exp: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 @Injectable()
