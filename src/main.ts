@@ -1,4 +1,9 @@
-import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
+import {
+  INestApplication,
+  Logger,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -7,14 +12,16 @@ import compression from 'compression';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: ['log', 'error', 'warn', 'debug'],
-  });
+export interface ConfigureAppResult {
+  nodeEnv: string;
+  defaultVersion: string;
+  origins: string[];
+  swaggerEnabled: boolean;
+}
 
+export function configureApp(app: INestApplication): ConfigureAppResult {
   const configService = app.get(ConfigService);
   const nodeEnv = configService.get<string>('app.nodeEnv') ?? 'development';
-  const port = configService.get<number>('app.port') ?? 3000;
   const corsOrigins = configService.get<string>('app.corsOrigins') ?? '';
   const apiPrefix = configService.get<string>('app.apiPrefix') ?? 'v1';
   const defaultVersion = apiPrefix.startsWith('v')
@@ -56,7 +63,26 @@ async function bootstrap() {
   }
 
   app.useGlobalFilters(new HttpExceptionFilter());
+
+  return {
+    nodeEnv,
+    defaultVersion,
+    origins,
+    swaggerEnabled,
+  };
+}
+
+export async function bootstrap() {
+  const app = await NestFactory.create(AppModule, {
+    logger: ['log', 'error', 'warn', 'debug'],
+  });
+
+  const { swaggerEnabled } = configureApp(app);
   app.enableShutdownHooks();
+
+  const configService = app.get(ConfigService);
+  const port = configService.get<number>('app.port') ?? 3000;
+  const apiPrefix = configService.get<string>('app.apiPrefix') ?? 'v1';
 
   await app.listen(port);
 
@@ -71,4 +97,10 @@ async function bootstrap() {
     );
   }
 }
-void bootstrap();
+
+if (
+  require.main === module ||
+  (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID)
+) {
+  void bootstrap();
+}

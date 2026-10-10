@@ -14,17 +14,13 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
-  ValidationPipe,
-  VersioningType,
 } from '@nestjs/common';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { ConfigModule } from '@nestjs/config';
 import { envValidationSchema } from '../src/config/env.validation';
 import configuration from '../src/config/configuration';
-import helmet from 'helmet';
-import compression from 'compression';
-import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter';
+import { configureApp } from '../src/main';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/database/prisma.service';
 import { WebAuthnService } from '../src/webauthn/webauthn.service';
@@ -136,18 +132,7 @@ describe('WebAuthn + payments authorize (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.use(helmet());
-    app.use(compression());
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-        transformOptions: { enableImplicitConversion: true },
-      }),
-    );
-    app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
-    app.useGlobalFilters(new HttpExceptionFilter());
+    configureApp(app);
     await app.init();
   });
 
