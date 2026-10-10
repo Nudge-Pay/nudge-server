@@ -17,7 +17,7 @@ not just anyone with a valid session token. One mechanism handles each job:
 | Payment approval | WebAuthn (passkey) | "Did the device owner just approve *this* payment?" | Only `POST /v1/payments/:id/authorize` |
 
 A stolen or replayed JWT is enough to *read* data, but never enough to move
-funds — that always requires a fresh, payment-scoped passkey assertion.
+funds — that always requires a fresh, payment-scoped passkey assertion with user verification (biometric or PIN).
 
 ## 2. Session layer — Supabase JWT
 
@@ -91,7 +91,7 @@ cannot be replayed against another.
 | Caller is the payment's sender | `FORBIDDEN` | 403 |
 | Payment status is `CREATED` | `PAYMENT_INVALID_STATE` | 409 |
 | Payment not expired | `PAYMENT_INVALID_STATE` | 409 |
-| WebAuthn assertion valid | `WEBAUTHN_VERIFICATION_FAILED` / `WEBAUTHN_CHALLENGE_EXPIRED` | 400 |
+| WebAuthn assertion valid (UV required) | `WEBAUTHN_VERIFICATION_FAILED` / `WEBAUTHN_CHALLENGE_EXPIRED` | 400 |
 
 Only after all five pass does the payment transition to `AUTHORIZED` and emit
 `payment.authorized`.
@@ -148,7 +148,7 @@ independently incrementing the same counter will diverge). This makes
 
 | Code | HTTP | Meaning |
 |------|------|---------|
-| `WEBAUTHN_VERIFICATION_FAILED` | 400 | Attestation/assertion failed cryptographic verification, or referenced an unknown/foreign credential |
+| `WEBAUTHN_VERIFICATION_FAILED` | 400 | Attestation/assertion failed cryptographic verification (including user verification check), or referenced an unknown/foreign credential |
 | `WEBAUTHN_CHALLENGE_EXPIRED` | 400 | No matching, unexpired challenge for this user (and payment, for authentication) |
 | `WEBAUTHN_CREDENTIAL_EXISTS` | 409 | Duplicate `credentialId` on registration (Prisma `P2002`) |
 | `WEBAUTHN_NO_CREDENTIALS` | 400 | User has no registered passkeys — cannot authenticate |

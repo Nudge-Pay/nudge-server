@@ -94,6 +94,14 @@ describe('WebAuthnService', () => {
       const options = await service.generateRegistrationOptions(AUTH_USER);
 
       expect(options).toEqual({ challenge: 'reg-challenge' });
+      expect(mockGenReg).toHaveBeenCalledWith(
+        expect.objectContaining({
+          authenticatorSelection: {
+            residentKey: 'preferred',
+            userVerification: 'required',
+          },
+        }),
+      );
       expect(repo.createChallenge).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: 'user-1',
@@ -138,9 +146,34 @@ describe('WebAuthnService', () => {
       const result = await service.verifyRegistration(AUTH_USER, {} as never);
 
       expect(result).toEqual({ verified: true, credentialId: 'cred-abc' });
+      expect(mockVerReg).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requireUserVerification: true,
+        }),
+      );
       expect(repo.createCredential).toHaveBeenCalledWith(
         expect.objectContaining({ userId: 'user-1', credentialId: 'cred-abc' }),
       );
+    });
+
+    it('throws VERIFICATION_FAILED with 400 when registration fails on user verification flag', async () => {
+      repo.consumeLatestValid.mockResolvedValue({
+        challenge: 'reg-challenge',
+      });
+      mockVerReg.mockRejectedValue(
+        new Error('User verification was required but not performed'),
+      );
+
+      await expect(
+        service.verifyRegistration(AUTH_USER, {} as never),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: {
+          statusCode: 400,
+          code: WEBAUTHN_ERROR.VERIFICATION_FAILED,
+        },
+      });
+      expect(repo.createCredential).not.toHaveBeenCalled();
     });
 
     it('throws CHALLENGE_EXPIRED when no challenge is stored', async () => {
@@ -282,6 +315,11 @@ describe('WebAuthnService', () => {
       );
 
       expect(options).toEqual({ challenge: 'auth-challenge' });
+      expect(mockGenAuth).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userVerification: 'required',
+        }),
+      );
       expect(repo.createChallenge).toHaveBeenCalledWith(
         expect.objectContaining({
           type: CHALLENGE_TYPE.AUTHENTICATION,
@@ -369,11 +407,46 @@ describe('WebAuthnService', () => {
         assertion,
       });
 
+      expect(mockVerAuth).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requireUserVerification: true,
+        }),
+      );
       expect(repo.updateCounter).toHaveBeenCalledWith(
         'cred-abc',
         BigInt(5),
         expect.any(Date),
       );
+    });
+
+    it('throws WEBAUTHN_VERIFICATION_FAILED with 400 when assertion verification fails on user verification flag', async () => {
+      repo.consumeLatestValid.mockResolvedValue({
+        challenge: 'auth-challenge',
+      });
+      repo.findByCredentialId.mockResolvedValue({
+        credentialId: 'cred-abc',
+        userId: 'user-1',
+        publicKey: new Uint8Array([1, 2, 3]),
+        counter: BigInt(0),
+      });
+      mockVerAuth.mockRejectedValue(
+        new Error('User verification was required but not performed'),
+      );
+
+      await expect(
+        service.verifyPaymentAssertion({
+          internalUserId: 'user-1',
+          paymentId: 'pay-1',
+          assertion,
+        }),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: {
+          statusCode: 400,
+          code: WEBAUTHN_ERROR.VERIFICATION_FAILED,
+        },
+      });
+      expect(repo.updateCounter).not.toHaveBeenCalled();
     });
   });
 
