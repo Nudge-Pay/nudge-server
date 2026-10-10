@@ -1,5 +1,5 @@
 ---
-description: Unit test patterns, conventions and commands for core-api
+description: Unit test patterns, conventions and commands for vela-server
 globs: src/**/*.spec.ts
 alwaysApply: true
 ---
@@ -18,7 +18,7 @@ npx jest
 
 # Run tests for a specific module
 npx jest --testPathPatterns users
-npx jest --testPathPatterns bounties
+npx jest --testPathPatterns payment-requests
 npx jest --testPathPatterns auth/guards
 
 # Run a single test file
@@ -48,11 +48,16 @@ npm run test:cov
 
 Configured in `package.json` under `jest`:
 
-- **Thresholds**: 75% statements, 75% lines, 75% functions, 70% branches
-- **Collected from**: `*.service.ts`, `*.controller.ts`, `*.guard.ts`, `*.interceptor.ts`, `*.pipe.ts`, `*.filter.ts`
-- **Excluded**: `*.spec.ts`, `*.e2e-spec.ts`, `auth/strategies/**` (Supabase strategy depends on external SDK)
+- **Collected from**: `**/*.(t|j)s`
+- **Output directory**: `coverage`
+- **Ignored paths**: `<rootDir>/.agents`, `<rootDir>/.claude`
+- **Test environment**: `node`
 
-When adding a new module, ensure tests meet the global thresholds before pushing.
+To generate a full test coverage report:
+
+```bash
+npm run test:cov
+```
 
 ## File Location & Naming
 
@@ -112,7 +117,7 @@ describe('FeatureService', () => {
 
 ```typescript
 it('should throw NotFoundException when user does not exist', ...)
-it('should create application with AWAITING_ASSIGNMENT status', ...)
+it('should return 401 when unauthenticated', ...)
 it('should emit user.created event after creating user', ...)
-it('should return 403 when non-admin tries to add role', ...)
+it('should throw ConflictException on duplicate requestId', ...)
 ```
