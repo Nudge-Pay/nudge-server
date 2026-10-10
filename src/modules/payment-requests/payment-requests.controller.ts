@@ -25,9 +25,24 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { PaymentRequestsService } from './payment-requests.service';
 import type { PaymentRequestValidationResponse } from './payment-requests.service';
+import {
+  PAYMENT_REQUEST_V1_TYPE,
+  PAYMENT_REQUEST_V1_VERSION,
+} from '../../contracts/payment-request.v1';
+import type { PaymentRequestV1 } from '../../contracts/payment-request.v1';
 import { CreatePaymentRequestDto } from './dto/create-payment-request.dto';
 import { PaymentRequestResponseDto } from './dto/payment-request-response.dto';
 import { ValidatePaymentRequestResponseDto } from './dto/validate-payment-request.dto';
+
+export const VALIDATE_PAYMENT_REQUEST_BODY_EXAMPLE: PaymentRequestV1 = {
+  type: PAYMENT_REQUEST_V1_TYPE,
+  version: PAYMENT_REQUEST_V1_VERSION,
+  recipient: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+  asset: 'USDC',
+  amount: '25.00',
+  timestamp: '2026-06-17T12:00:00.000Z',
+  expiresAt: '2026-06-17T12:00:30.000Z',
+};
 
 @ApiTags('payment-requests')
 @Controller('payment-requests')
@@ -51,15 +66,7 @@ export class PaymentRequestsController {
     description: 'Canonical payment-request.v1 JSON payload.',
     schema: {
       type: 'object',
-      example: {
-        type: 'payment-request',
-        version: 1,
-        recipient: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
-        asset: 'USDC',
-        amount: '25.00',
-        timestamp: '2026-06-17T12:00:00.000Z',
-        expiresAt: '2026-06-17T12:00:30.000Z',
-      },
+      example: VALIDATE_PAYMENT_REQUEST_BODY_EXAMPLE,
     },
   })
   @ApiOkResponse({

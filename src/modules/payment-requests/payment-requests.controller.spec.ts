@@ -1,9 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { PaymentRequestsController } from './payment-requests.controller';
+import {
+  PaymentRequestsController,
+  VALIDATE_PAYMENT_REQUEST_BODY_EXAMPLE,
+} from './payment-requests.controller';
 import { PaymentRequestsService } from './payment-requests.service';
 import { PaymentRequestsRepository } from './payment-requests.repository';
 import { CreatePaymentRequestDto } from './dto/create-payment-request.dto';
+import { validatePaymentRequestV1 } from '../../contracts/payment-request.v1';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 
 const mockUser: AuthenticatedUser = { supabaseUserId: 'uid-abc' };
@@ -57,6 +61,16 @@ describe('PaymentRequestsController', () => {
         type: 'payment-request',
       });
       expect(result).toBe(expected);
+    });
+
+    it('documents an @ApiBody example that satisfies validatePaymentRequestV1 contract', () => {
+      const simulatedNow = new Date('2026-06-17T12:00:10.000Z');
+      const validation = validatePaymentRequestV1(
+        VALIDATE_PAYMENT_REQUEST_BODY_EXAMPLE,
+        simulatedNow,
+      );
+      expect(validation.valid).toBe(true);
+      expect(validation.errors).toHaveLength(0);
     });
   });
 
