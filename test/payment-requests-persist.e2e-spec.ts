@@ -182,6 +182,42 @@ describe('PaymentRequests persist + retrieve (e2e)', () => {
         status: 'CREATED',
         asset: 'USDC',
         amount: '10.00',
+        memo: null,
+        metadata: null,
+      });
+    });
+
+    it('returns memo and metadata when provided in create body', async () => {
+      mockRepo.create.mockResolvedValueOnce({
+        id: createdPrId,
+        externalRequestId: 'req_with_memo',
+        receiverUserId: 'test-supabase-user-id',
+        recipient: VALID_RECIPIENT,
+        asset: 'USDC',
+        amount: { toString: () => '10.00' },
+        memo: 'Dinner with friends',
+        status: 'CREATED',
+        payloadTimestamp: new Date(),
+        expiresAt: new Date(Date.now() + 30_000),
+        metadata: { table: 3 },
+        createdAt: new Date(),
+      });
+
+      const res = await request(app.getHttpServer())
+        .post(PERSIST_ROUTE)
+        .set('Authorization', bearer())
+        .send(
+          validCreateBody({
+            requestId: 'req_with_memo',
+            memo: 'Dinner with friends',
+            metadata: { table: 3 },
+          }),
+        );
+
+      expect(res.status).toBe(201);
+      expect(res.body).toMatchObject({
+        memo: 'Dinner with friends',
+        metadata: { table: 3 },
       });
     });
 
@@ -237,6 +273,35 @@ describe('PaymentRequests persist + retrieve (e2e)', () => {
         id: createdPrId,
         status: 'SHARED',
         asset: 'USDC',
+        memo: null,
+        metadata: null,
+      });
+    });
+
+    it('returns memo and metadata on GET /v1/payment-requests/:id when present', async () => {
+      mockRepo.findById.mockResolvedValueOnce({
+        id: createdPrId,
+        externalRequestId: 'req_001',
+        receiverUserId: 'test-supabase-user-id',
+        recipient: VALID_RECIPIENT,
+        asset: 'USDC',
+        amount: { toString: () => '10.00' },
+        memo: 'Lunch at Cafe',
+        status: 'SHARED',
+        payloadTimestamp: new Date(),
+        expiresAt: new Date(Date.now() + 30_000),
+        metadata: { orderId: 'ord_999' },
+        createdAt: new Date(),
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`${PERSIST_ROUTE}/${createdPrId}`)
+        .set('Authorization', bearer());
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        memo: 'Lunch at Cafe',
+        metadata: { orderId: 'ord_999' },
       });
     });
 
