@@ -53,60 +53,6 @@ export type PaymentRequestValidationResult =
       errors: PaymentRequestValidationError[];
     };
 
-export const paymentRequestV1JsonSchema = {
-  $id: 'https://github.com/VelaPayments/vela-server/blob/main/docs/payment-request.v1.md',
-  $schema: 'https://json-schema.org/draft/2020-12/schema',
-  title: 'payment-request.v1',
-  type: 'object',
-  additionalProperties: false,
-  required: [
-    'type',
-    'version',
-    'recipient',
-    'asset',
-    'amount',
-    'timestamp',
-    'expiresAt',
-  ],
-  properties: {
-    type: { const: PAYMENT_REQUEST_V1_TYPE },
-    version: { const: PAYMENT_REQUEST_V1_VERSION },
-    recipient: {
-      type: 'string',
-      pattern: '^G[A-Z2-7]{55}$',
-    },
-    asset: {
-      type: 'string',
-      enum: PAYMENT_REQUEST_V1_SUPPORTED_ASSETS,
-    },
-    amount: {
-      type: 'string',
-      pattern: '^(?!0+(?:\\.0{1,7})?$)(?:0|[1-9]\\d*)(?:\\.\\d{1,7})?$',
-    },
-    timestamp: {
-      type: 'string',
-      format: 'date-time',
-    },
-    expiresAt: {
-      type: 'string',
-      format: 'date-time',
-    },
-    memo: {
-      type: 'string',
-      maxLength: 280,
-    },
-    requestId: {
-      type: 'string',
-      minLength: 1,
-      maxLength: 128,
-    },
-    metadata: {
-      type: 'object',
-      additionalProperties: true,
-    },
-  },
-} as const;
-
 const ALLOWED_FIELDS = new Set([
   'type',
   'version',
