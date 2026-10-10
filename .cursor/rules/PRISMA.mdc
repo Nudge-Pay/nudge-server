@@ -1,5 +1,5 @@
 ---
-description: Prisma schema and database conventions for core-api
+description: Prisma schema and database conventions for vela-server
 globs: prisma/**,src/database/**
 alwaysApply: false
 ---
@@ -8,48 +8,60 @@ alwaysApply: false
 
 ## Schema Conventions
 
-- Table names use `@@map("snake_case")` — Prisma models use PascalCase
-- UUIDs for all primary keys: `@id @default(uuid()) @db.Uuid`
-- Always add `created_at` and `updated_at` timestamps
-- Use enums for finite states: `ProjectStatus`, `ApplicationStatus`, `TierLevel`, etc.
-- Use `BigInt` for GitHub IDs (`github_repo_id`, `github_issue_id`, `github_pr_id`)
+- Table names use `@@map("snake_case")` — Prisma models use PascalCase (`User` → `users`, `PaymentRequest` → `payment_requests`, etc.)
+- Primary keys: UUID strings using `String @id @default(uuid())` (stored as text without native `@db.Uuid`)
+- Timestamps:
+  - Mutable records (`User`, `Payment`): include both `createdAt DateTime @default(now())` and `updatedAt DateTime @updatedAt`
+  - Append-only or immutable records (`Wallet`, `PaymentRequest`, `Transaction`, `WebAuthnCredential`, `WebAuthnChallenge`, `UsedRequestId`): define `createdAt` (or `consumedAt`) only
+- Use Prisma enums for finite domain states: `StellarNetwork`, `AssetCode`, `PaymentRequestStatus`, `PaymentStatus`, `TransactionDirection`
+- Amounts: Stellar amounts use `@db.Decimal(20, 7)` to preserve up to 7 decimal places without floating-point precision loss
+- String lengths: bounded strings use explicit PostgreSQL native types, such as `memo String? @db.VarChar(280)`
 
 ## Relations & Cascade
 
-- `onDelete: Cascade` for child records that shouldn't exist without parent (IssueApplication → Issue, Issue → Repository)
-- `onDelete: SetNull` for optional associations (Issue → Campaign)
-- Always add `@@index` on FK columns and frequently queried fields
-- Use `@@unique` for composite natural keys (e.g. `[repository_id, github_issue_number]`)
+- `onDelete: Cascade` for child records that belong to a parent lifecycle:
+  - `Wallet → User`
+  - `PaymentRequest → User`
+  - `Payment.senderUser → User`, `Payment.receiverUser → User`
+  - `Transaction → User`
+  - `WebAuthnCredential → User`
+  - `WebAuthnChallenge → User`
+  - `UsedRequestId → PaymentRequest`
+- `onDelete: SetNull` for optional associations:
+  - `Payment.paymentRequest → PaymentRequest` via optional `paymentRequestId`
+  - `Transaction.payment → Payment` via optional `paymentId`
+- Always add `@@index` on foreign key columns and frequently queried lookup fields (e.g. `[receiverUserId, status]`, `[userId, isPrimary]`, `[userId, type, expiresAt]`)
+- Use `@@unique` for composite or natural keys (e.g. `[stellarPublicKey, network]`, `externalRequestId`, `credentialId`, `requestId`)
 
 ## Prisma Usage in Services
 
 ```typescript
-// Transactions for multi-step writes
+// Multi-step atomic writes via transactions
 await this.prisma.$transaction(async (tx) => {
-  await tx.model.create({ data: { ... } });
-  await tx.otherModel.update({ where: { ... }, data: { ... } });
+  const payment = await tx.payment.create({ data: { ... } });
+  await tx.paymentRequest.update({
+    where: { id: paymentRequestId },
+    data: { status: 'CONSUMED' },
+  });
+  return payment;
 });
 
-// Use updateMany when the record might not exist (avoids throwing)
-await this.prisma.issue.updateMany({
-  where: { repository_id: repoId, github_issue_number: issueNum },
-  data: { state: 'closed' },
-});
-
-// Use deleteMany for safe deletes (no throw if not found)
-await this.prisma.issue.deleteMany({
-  where: { repository_id: repoId, github_issue_number: issueNum },
+// Atomic updates for idempotent state transitions
+await this.prisma.payment.update({
+  where: { id: paymentId, status: 'CREATED' },
+  data: { status: 'AUTHORIZED', authorizedAt: new Date() },
 });
 ```
 
 ## Commands
 
-| Command | Use |
-|---------|-----|
-| `npm run prisma:generate` | After schema changes |
-| `npm run prisma:migrate` | Create migration (production) |
-| `npm run prisma:push` | Push schema (dev only) |
-| `npm run prisma:studio` | Visual DB browser |
-| `npm run prisma:seed` | Seed data (TierDefinitions, categories) |
+| Command                         | Use                                                            |
+| ------------------------------- | -------------------------------------------------------------- |
+| `npm run prisma:generate`       | Generate Prisma Client after schema changes                    |
+| `npm run prisma:migrate`        | Create and apply development migrations (`prisma migrate dev`) |
+| `npm run prisma:migrate:deploy` | Apply migrations in production/CI (`prisma migrate deploy`)    |
+| `npm run prisma:studio`         | Open Prisma Studio visual browser                              |
+| `npm run prisma:seed`           | Seed initial development data                                  |
+| `npm run prisma:reset`          | Reset and re-migrate development database                      |
 
-See `docs/DATABASE.md` for full setup guide.
+See `.cursor/rules/DATABASE.mdc` for environment configuration, connection pooling, and Row-Level Security rules.
