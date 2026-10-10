@@ -13,6 +13,7 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -138,6 +139,9 @@ export class WebAuthnController {
   })
   @ApiOkResponse({ description: 'PublicKeyCredentialRequestOptionsJSON.' })
   @ApiBadRequestResponse({ description: 'WEBAUTHN_NO_CREDENTIALS.' })
+  @ApiNotFoundResponse({ description: 'PAYMENT_NOT_FOUND.' })
+  @ApiForbiddenResponse({ description: 'FORBIDDEN.' })
+  @ApiConflictResponse({ description: 'PAYMENT_INVALID_STATE.' })
   authenticateOptions(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: AuthenticateOptionsDto,

@@ -1,11 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { PaymentStatus } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import {
   generateAuthenticationOptions,
@@ -174,6 +176,40 @@ export class WebAuthnService {
   ): Promise<PublicKeyCredentialRequestOptionsJSON> {
     const { rpId } = this.rp();
     const user = await this.resolveUser(authUser);
+
+    const payment = await this.repo.findPaymentById(paymentId);
+    if (!payment) {
+      throw new NotFoundException({
+        statusCode: 404,
+        message: `Payment ${paymentId} not found.`,
+        code: 'PAYMENT_NOT_FOUND',
+      });
+    }
+
+    if (payment.senderUserId !== user.id) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        message: 'You are not the sender of this payment.',
+        code: 'FORBIDDEN',
+      });
+    }
+
+    if (payment.status !== PaymentStatus.CREATED) {
+      throw new ConflictException({
+        statusCode: 409,
+        message: `Payment is ${payment.status}; expected CREATED.`,
+        code: 'PAYMENT_INVALID_STATE',
+      });
+    }
+
+    if (payment.expiresAt && payment.expiresAt.getTime() <= Date.now()) {
+      throw new ConflictException({
+        statusCode: 409,
+        message: 'Payment has expired.',
+        code: 'PAYMENT_EXPIRED',
+      });
+    }
+
     const credentials = await this.repo.listByUser(user.id);
 
     if (credentials.length === 0) {

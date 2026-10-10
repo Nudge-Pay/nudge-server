@@ -12,6 +12,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import {
   INestApplication,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
   ValidationPipe,
   VersioningType,
@@ -286,6 +287,44 @@ describe('WebAuthn + payments authorize (e2e)', () => {
         .send({ paymentId: PAYMENT_ID });
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ challenge: 'auth-challenge' });
+    });
+
+    it('returns 404 when payment does not exist', async () => {
+      webAuthnMock.generateAuthenticationOptions.mockRejectedValueOnce(
+        new NotFoundException({
+          statusCode: 404,
+          message: 'Payment not found.',
+          code: 'PAYMENT_NOT_FOUND',
+        }),
+      );
+      const res = await request(app.getHttpServer())
+        .post('/v1/webauthn/authenticate/options')
+        .set('Authorization', bearer())
+        .send({ paymentId: PAYMENT_ID });
+      expect(res.status).toBe(404);
+      expect(res.body).toMatchObject({
+        statusCode: 404,
+        code: 'PAYMENT_NOT_FOUND',
+      });
+    });
+
+    it('returns 403 when user is not the sender of the payment', async () => {
+      webAuthnMock.generateAuthenticationOptions.mockRejectedValueOnce(
+        new ForbiddenException({
+          statusCode: 403,
+          message: 'You are not the sender of this payment.',
+          code: 'FORBIDDEN',
+        }),
+      );
+      const res = await request(app.getHttpServer())
+        .post('/v1/webauthn/authenticate/options')
+        .set('Authorization', bearer())
+        .send({ paymentId: PAYMENT_ID });
+      expect(res.status).toBe(403);
+      expect(res.body).toMatchObject({
+        statusCode: 403,
+        code: 'FORBIDDEN',
+      });
     });
   });
 

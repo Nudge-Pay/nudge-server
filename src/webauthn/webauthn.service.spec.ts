@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { PaymentStatus } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import {
   generateAuthenticationOptions,
@@ -45,6 +47,7 @@ interface RepoMock {
   findByIdForUser: jest.Mock;
   updateCounter: jest.Mock;
   deleteById: jest.Mock;
+  findPaymentById: jest.Mock;
 }
 
 describe('WebAuthnService', () => {
@@ -65,6 +68,7 @@ describe('WebAuthnService', () => {
       findByIdForUser: jest.fn(),
       updateCounter: jest.fn().mockResolvedValue({}),
       deleteById: jest.fn().mockResolvedValue({}),
+      findPaymentById: jest.fn(),
     };
 
     users = {
@@ -293,7 +297,72 @@ describe('WebAuthnService', () => {
   });
 
   describe('generateAuthenticationOptions', () => {
+    it('throws NotFoundException when the payment does not exist', async () => {
+      repo.findPaymentById.mockResolvedValue(null);
+
+      const act = service.generateAuthenticationOptions(AUTH_USER, 'pay-1');
+      await expect(act).rejects.toThrow(NotFoundException);
+      await expect(act).rejects.toMatchObject({
+        response: { code: 'PAYMENT_NOT_FOUND', statusCode: 404 },
+      });
+      expect(repo.createChallenge).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when payment belongs to another sender', async () => {
+      repo.findPaymentById.mockResolvedValue({
+        id: 'pay-1',
+        senderUserId: 'other-user',
+        status: PaymentStatus.CREATED,
+        expiresAt: null,
+      });
+
+      const act = service.generateAuthenticationOptions(AUTH_USER, 'pay-1');
+      await expect(act).rejects.toThrow(ForbiddenException);
+      await expect(act).rejects.toMatchObject({
+        response: { code: 'FORBIDDEN', statusCode: 403 },
+      });
+      expect(repo.createChallenge).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException when payment is not in CREATED status', async () => {
+      repo.findPaymentById.mockResolvedValue({
+        id: 'pay-1',
+        senderUserId: 'user-1',
+        status: PaymentStatus.AUTHORIZED,
+        expiresAt: null,
+      });
+
+      await expect(
+        service.generateAuthenticationOptions(AUTH_USER, 'pay-1'),
+      ).rejects.toMatchObject({
+        response: { code: 'PAYMENT_INVALID_STATE', statusCode: 409 },
+      });
+      expect(repo.createChallenge).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException when payment has expired', async () => {
+      repo.findPaymentById.mockResolvedValue({
+        id: 'pay-1',
+        senderUserId: 'user-1',
+        status: PaymentStatus.CREATED,
+        expiresAt: new Date(Date.now() - 10_000),
+      });
+
+      await expect(
+        service.generateAuthenticationOptions(AUTH_USER, 'pay-1'),
+      ).rejects.toMatchObject({
+        response: { code: 'PAYMENT_EXPIRED', statusCode: 409 },
+      });
+      expect(repo.createChallenge).not.toHaveBeenCalled();
+    });
+
     it('throws NO_CREDENTIALS when the user has no passkeys', async () => {
+      repo.findPaymentById.mockResolvedValue({
+        id: 'pay-1',
+        senderUserId: 'user-1',
+        status: PaymentStatus.CREATED,
+        expiresAt: null,
+      });
       repo.listByUser.mockResolvedValue([]);
 
       await expect(
@@ -301,9 +370,16 @@ describe('WebAuthnService', () => {
       ).rejects.toMatchObject({
         response: { code: WEBAUTHN_ERROR.NO_CREDENTIALS },
       });
+      expect(repo.createChallenge).not.toHaveBeenCalled();
     });
 
     it('stores an authentication challenge bound to the payment', async () => {
+      repo.findPaymentById.mockResolvedValue({
+        id: 'pay-1',
+        senderUserId: 'user-1',
+        status: PaymentStatus.CREATED,
+        expiresAt: null,
+      });
       repo.listByUser.mockResolvedValue([
         { credentialId: 'cred-abc' },
       ] as never);
