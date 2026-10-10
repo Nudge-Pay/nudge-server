@@ -156,8 +156,22 @@ export class StellarService {
     this.assertAmount(params.amount);
     this.assertMemo(params.memo);
 
-    const timeoutSeconds =
-      params.timeoutSeconds ?? STELLAR_TRANSACTION_TIMEOUT_SECONDS;
+    const defaultTimeoutSeconds = (() => {
+      try {
+        const ms = this.config.getOrThrow<number>('payments.submitTimeoutMs');
+        if (typeof ms === 'number' && !Number.isNaN(ms) && ms > 0) {
+          return Math.floor(ms / 1000);
+        }
+      } catch {
+        const ms = this.config.get<number>('payments.submitTimeoutMs');
+        if (typeof ms === 'number' && !Number.isNaN(ms) && ms > 0) {
+          return Math.floor(ms / 1000);
+        }
+      }
+      return STELLAR_TRANSACTION_TIMEOUT_SECONDS;
+    })();
+
+    const timeoutSeconds = params.timeoutSeconds ?? defaultTimeoutSeconds;
     if (!Number.isInteger(timeoutSeconds) || timeoutSeconds <= 0) {
       throw this.invalidTransaction(
         'timeoutSeconds must be a positive integer.',
