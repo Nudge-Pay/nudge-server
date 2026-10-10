@@ -205,6 +205,16 @@ The script will:
 - Leave backend-only tables (`webauthn_challenges`, `used_request_ids`) with RLS enabled and no direct client access, accessible only via the backend service role key.
 
 See also [Supabase Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security) for details.
+3. After applying the Prisma migrations, open `prisma/rls.sql` from this repo, copy its contents, and run it once.
+
+The script will:
+
+- Enable RLS on the eight application tables in the migration.
+- Add SELECT-only policies for `users`, `wallets`, `payment_requests`, `payments`, `transactions`, and `webauthn_credentials`.
+- Resolve `auth.uid()::text` against `users."supabaseUserId"`; related tables use the internal user ID in quoted camelCase columns. Payments are readable by their sender or receiver.
+- Leave `webauthn_challenges` and `used_request_ids` with RLS enabled and no client policies. No client INSERT, UPDATE, or DELETE policies are defined.
+
+For a disposable PostgreSQL database, run `npm run prisma:migrate:deploy`, then `psql "$DIRECT_URL" -v ON_ERROR_STOP=1 -f test/rls.integration.sql`. The test supplies a local `auth.uid()` stub, applies every policy, checks user and wallet isolation under a non-owner role, and rolls back its fixtures and policies. This does not test the hosted Supabase authentication service. See also [Supabase Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
 ## 🔐 Security Notes
 
