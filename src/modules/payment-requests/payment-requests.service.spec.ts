@@ -3,6 +3,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { UsersService } from '../users/users.service';
 import { PaymentRequestsService } from './payment-requests.service';
 import { PaymentRequestsRepository } from './payment-requests.repository';
 import { CreatePaymentRequestDto } from './dto/create-payment-request.dto';
@@ -37,7 +38,7 @@ function makePaymentRequest(
   return {
     id: 'pr-uuid-1',
     externalRequestId: 'req_001',
-    receiverUserId: 'user-supabase-id',
+    receiverUserId: 'internal-user-id',
     recipient: VALID_RECIPIENT,
     asset: 'USDC',
     amount: new Decimal('10'), // Decimal.toString() → '10' (no trailing zeros)
@@ -55,6 +56,7 @@ const mockUser: AuthenticatedUser = { supabaseUserId: 'user-supabase-id' };
 
 describe('PaymentRequestsService', () => {
   let service: PaymentRequestsService;
+  let users: { getUserBySupabaseId: jest.Mock };
   let repo: { create: jest.Mock; findById: jest.Mock };
 
   beforeEach(() => {
@@ -62,8 +64,14 @@ describe('PaymentRequestsService', () => {
       create: jest.fn(),
       findById: jest.fn(),
     };
+    users = {
+      getUserBySupabaseId: jest
+        .fn()
+        .mockResolvedValue({ id: 'internal-user-id' }),
+    };
     service = new PaymentRequestsService(
       repo as unknown as PaymentRequestsRepository,
+      users as unknown as UsersService,
     );
   });
 
@@ -133,6 +141,13 @@ describe('PaymentRequestsService', () => {
   // ── create ────────────────────────────────────────────────────────────────
 
   describe('create()', () => {
+    it('does not persist a request without an internal user', async () => {
+      users.getUserBySupabaseId.mockResolvedValue(null);
+      await expect(service.create(makeDto(), mockUser)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(repo.create).not.toHaveBeenCalled();
+    });
     it('persists and returns the response DTO for a valid payload', async () => {
       const pr = makePaymentRequest();
       repo.create.mockResolvedValue(pr);
@@ -140,7 +155,7 @@ describe('PaymentRequestsService', () => {
       const result = await service.create(makeDto(), mockUser);
 
       expect(repo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ receiverUserId: 'user-supabase-id' }),
+        expect.objectContaining({ receiverUserId: 'internal-user-id' }),
       );
       expect(result.id).toBe('pr-uuid-1');
       expect(result.status).toBe('CREATED');
@@ -156,7 +171,7 @@ describe('PaymentRequestsService', () => {
       const optionalCall = repo.create.mock.calls[0] as unknown as [
         { dto: Record<string, unknown>; receiverUserId: string },
       ];
-      expect(optionalCall[0].receiverUserId).toBe('user-supabase-id');
+      expect(optionalCall[0].receiverUserId).toBe('internal-user-id');
       expect(optionalCall[0].dto.memo).toBe('Coffee');
       expect(optionalCall[0].dto.requestId).toBe('req_optional');
 
@@ -216,6 +231,15 @@ describe('PaymentRequestsService', () => {
   // ── findById ──────────────────────────────────────────────────────────────
 
   describe('findById()', () => {
+    it('returns the same not-found code without querying requests when the internal user is absent', async () => {
+      users.getUserBySupabaseId.mockResolvedValue(null);
+      await expect(
+        service.findById('pr-uuid-1', mockUser),
+      ).rejects.toMatchObject({
+        response: { statusCode: 404, code: 'PAYMENT_REQUEST_NOT_FOUND' },
+      });
+      expect(repo.findById).not.toHaveBeenCalled();
+    });
     it('returns the response DTO when requested by the owner', async () => {
       const pr = makePaymentRequest({ status: 'SHARED' });
       repo.findById.mockResolvedValue(pr);
@@ -224,6 +248,9 @@ describe('PaymentRequestsService', () => {
 
       expect(repo.findById).toHaveBeenCalledWith(
         'pr-uuid-1',
+        'internal-user-id',
+      );
+      expect(users.getUserBySupabaseId).toHaveBeenCalledWith(
         mockUser.supabaseUserId,
       );
       expect(result.status).toBe('SHARED');
