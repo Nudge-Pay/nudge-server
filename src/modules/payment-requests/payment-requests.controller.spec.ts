@@ -102,7 +102,7 @@ describe('PaymentRequestsController', () => {
 
       const result = await controller.findById('pr-uuid-1', mockUser);
 
-      expect(service.findById).toHaveBeenCalledWith('pr-uuid-1');
+      expect(service.findById).toHaveBeenCalledWith('pr-uuid-1', mockUser);
       expect(result.status).toBe('SHARED');
     });
 
