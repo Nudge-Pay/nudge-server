@@ -43,6 +43,20 @@ describe('payment-request.v1 contract', () => {
     }
   });
 
+  it('accepts the payload example from docs/vela-overview.md', () => {
+    const doc = readFileSync('docs/vela-overview.md', 'utf8');
+    const match = doc.match(/```json\r?\n([\s\S]*?)\r?\n```/);
+    expect(match).not.toBeNull();
+    const payload = JSON.parse(match![1]) as PaymentRequestV1;
+    const result = validatePaymentRequestV1(payload, NOW);
+    expect(result).toEqual({
+      valid: true,
+      value: payload,
+      errors: [],
+    });
+    expect(doc).not.toMatch(/"type":\s*"payment_request"/);
+  });
+
   it('accepts a valid minimal payment request', () => {
     const result = validatePaymentRequestV1(validPayload(), NOW);
 
