@@ -278,7 +278,13 @@ export class StellarService {
           failureCode: STELLAR_ERROR.TX_FAILED,
         };
       } catch (error) {
-        if (!this.isNotFound(error)) {
+        if (this.isNotFound(error)) {
+          // Transaction not yet ingested; continue polling.
+        } else if (this.isTransient(error)) {
+          if (attempt === maxAttempts - 1) {
+            throw this.networkError('Unable to poll the Stellar transaction.');
+          }
+        } else {
           throw this.networkError('Unable to poll the Stellar transaction.');
         }
       }
@@ -362,6 +368,14 @@ export class StellarService {
       return true;
     }
     return this.getResponseStatus(error) === 404;
+  }
+
+  private isTransient(error: unknown): boolean {
+    const status = this.getResponseStatus(error);
+    if (status === 429) {
+      return true;
+    }
+    return this.isServerError(error);
   }
 
   private isServerError(error: unknown): boolean {
