@@ -29,6 +29,8 @@ function toResponseDto(pr: PrismaPaymentRequest): PaymentRequestResponseDto {
     amount: pr.amount.toString(),
     expiresAt: pr.expiresAt.toISOString(),
     createdAt: pr.createdAt.toISOString(),
+    memo: pr.memo ?? null,
+    metadata: (pr.metadata as Record<string, unknown> | null) ?? null,
   };
 }
 

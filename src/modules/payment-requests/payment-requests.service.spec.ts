@@ -145,6 +145,27 @@ describe('PaymentRequestsService', () => {
       expect(result.id).toBe('pr-uuid-1');
       expect(result.status).toBe('CREATED');
       expect(result.amount).toBe('10');
+      expect(result.memo).toBeNull();
+      expect(result.metadata).toBeNull();
+    });
+
+    it('returns persisted memo and metadata when provided', async () => {
+      const pr = makePaymentRequest({
+        memo: 'Dinner with friends',
+        metadata: { orderId: 'ord_123', table: 5 },
+      });
+      repo.create.mockResolvedValue(pr);
+
+      const result = await service.create(
+        makeDto({
+          memo: 'Dinner with friends',
+          metadata: { orderId: 'ord_123', table: 5 },
+        }),
+        mockUser,
+      );
+
+      expect(result.memo).toBe('Dinner with friends');
+      expect(result.metadata).toEqual({ orderId: 'ord_123', table: 5 });
     });
 
     it('passes optional memo and requestId through without inventing absent fields', async () => {
@@ -217,13 +238,19 @@ describe('PaymentRequestsService', () => {
 
   describe('findById()', () => {
     it('returns the response DTO for an existing record', async () => {
-      const pr = makePaymentRequest({ status: 'SHARED' });
+      const pr = makePaymentRequest({
+        status: 'SHARED',
+        memo: 'Coffee',
+        metadata: { vip: true },
+      });
       repo.findById.mockResolvedValue(pr);
 
       const result = await service.findById('pr-uuid-1');
 
       expect(repo.findById).toHaveBeenCalledWith('pr-uuid-1');
       expect(result.status).toBe('SHARED');
+      expect(result.memo).toBe('Coffee');
+      expect(result.metadata).toEqual({ vip: true });
     });
 
     it('propagates NotFoundException from repo', async () => {

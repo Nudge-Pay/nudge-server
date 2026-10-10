@@ -29,4 +29,10 @@ export class PaymentRequestResponseDto {
 
   @ApiPropertyOptional({ example: '2026-06-17T12:00:00.000Z' })
   createdAt?: string;
+
+  @ApiPropertyOptional({ example: 'Dinner with friends', nullable: true })
+  memo?: string | null;
+
+  @ApiPropertyOptional({ example: { orderId: '123' }, nullable: true })
+  metadata?: Record<string, unknown> | null;
 }
