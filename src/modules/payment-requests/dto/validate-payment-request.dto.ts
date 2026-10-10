@@ -18,10 +18,10 @@ export class ValidatePaymentRequestDto {
 
 export class ValidationErrorDto {
   @ApiProperty({ example: 'PAYMENT_REQUEST_ASSET_UNSUPPORTED' })
-  code: string;
+  code!: string;
 
   @ApiProperty({ example: 'asset must be one of: XLM, USDC.' })
-  message: string;
+  message!: string;
 
   @ApiPropertyOptional({ example: 'asset' })
   field?: string;
@@ -29,7 +29,7 @@ export class ValidationErrorDto {
 
 export class ValidatePaymentRequestResponseDto {
   @ApiProperty({ example: true })
-  valid: boolean;
+  valid!: boolean;
 
   @ApiPropertyOptional({
     description: 'Normalized payload returned only when valid=true.',
@@ -39,5 +39,5 @@ export class ValidatePaymentRequestResponseDto {
   normalized?: Record<string, unknown>;
 
   @ApiProperty({ type: [ValidationErrorDto] })
-  errors: ValidationErrorDto[];
+  errors!: ValidationErrorDto[];
 }
