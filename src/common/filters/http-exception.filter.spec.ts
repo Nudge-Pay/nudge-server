@@ -134,4 +134,40 @@ describe('HttpExceptionFilter', () => {
       }),
     );
   });
+
+  it('handles Prisma P2025 error with NOT_FOUND', () => {
+    const prismaError = {
+      name: 'PrismaClientKnownRequestError',
+      code: 'P2025',
+    };
+
+    filter.catch(prismaError, mockHost);
+
+    expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
+    expect(mockResponse.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      }),
+    );
+  });
+
+  it('handles unknown Prisma error code with DB_ERROR', () => {
+    const prismaError = {
+      name: 'PrismaClientKnownRequestError',
+      code: 'P9999',
+    };
+
+    filter.catch(prismaError, mockHost);
+
+    expect(mockResponse.status).toHaveBeenCalledWith(
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+    expect(mockResponse.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 500,
+        code: 'DB_ERROR',
+      }),
+    );
+  });
 });
