@@ -9,6 +9,7 @@ import {
   MinLength,
   MaxLength,
   Matches,
+  Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
@@ -29,7 +30,6 @@ export class CreatePaymentRequestDto {
   })
   @IsString()
   @IsIn([PAYMENT_REQUEST_V1_TYPE])
-  type: string;
   type!: string;
 
   @ApiProperty({
@@ -39,7 +39,6 @@ export class CreatePaymentRequestDto {
   })
   @IsNumber()
   @Equals(PAYMENT_REQUEST_V1_VERSION)
-  version: number;
   @Min(1)
   version!: number;
 
@@ -58,8 +57,11 @@ export class CreatePaymentRequestDto {
     enum: PAYMENT_REQUEST_V1_SUPPORTED_ASSETS,
     example: 'USDC',
   })
-  @IsIn(PAYMENT_REQUEST_V1_SUPPORTED_ASSETS)
-  asset!: PaymentRequestV1Asset;
+  // membership is validated by the contract validator so the documented
+  // 422 PAYMENT_REQUEST_ASSET_UNSUPPORTED is what callers see — a
+  // decorator here would pre-empt it with a generic 400.
+  @IsString()
+  asset!: string;
 
   @ApiProperty({
     description: 'Positive decimal string, ≤7 decimal places.',

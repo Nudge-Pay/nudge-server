@@ -250,9 +250,10 @@ describe('PaymentRequests persist + retrieve (e2e)', () => {
         .set('Authorization', bearer())
         .send(validCreateBody({ asset: 'ETH' }));
 
-      // ValidationPipe strips 'ETH' via @IsIn → 400; or v1 validation 422
-      // Either is acceptable; assert it is not 201
-      expect(res.status).not.toBe(201);
+      expect(res.status).toBe(422);
+      expect((res.body as { code?: string }).code).toBe(
+        'PAYMENT_REQUEST_ASSET_UNSUPPORTED',
+      );
     });
 
     // SRV-039: anti-replay
@@ -296,7 +297,7 @@ describe('PaymentRequests persist + retrieve (e2e)', () => {
       mockRepo.findById.mockResolvedValueOnce({
         id: createdPrId,
         externalRequestId: 'req_001',
-        receiverUserId: 'test-supabase-user-id',
+        receiverUserId: 'internal-owner-id',
         recipient: VALID_RECIPIENT,
         asset: 'USDC',
         amount: { toString: () => '10.00' },
